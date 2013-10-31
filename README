@@ -1,0 +1,2 @@
+Pipe a modified query like this to gojira to get the issues for the current sprint.
+curl -k -u UNAME:PWORD "https://jira.gammae.com/rest/api/2/search?jql=sprint+in+openSprints()+AND+project+=+'Traffic+Division'"
