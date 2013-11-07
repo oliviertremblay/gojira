@@ -1,0 +1,9 @@
+TODO
+----
+
+-Include worklog for whole sprint for single user
+-Include filters by story
+-Allow time logging
+-Create subtask for given task
+-Update description of task/subtask (git commit type of thing, talk with EDITOR env var)
+-Forgetting things.

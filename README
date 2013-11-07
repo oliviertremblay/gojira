@@ -1,2 +1,11 @@
+README
+------
+
+Please maintain TODO
+
+
 Pipe a modified query like this to gojira to get the issues for the current sprint.
 curl -k -u UNAME:PWORD "https://jira.gammae.com/rest/api/2/search?jql=sprint+in+openSprints()+AND+project+=+'Traffic+Division'"
+
+Get the worklog for a story
+./gojira -n -c -u otremblay -p REDACTED | grep 1789 | grep -v "Story" | while read l; do x=$(echo $l | grep -o 'TDIV-[0-9]\+'); curl -k -u otremblay:REDACTED "https://jira.gammae.com/rest/api/2/issue/$x/worklog"; done
