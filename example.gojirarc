@@ -1,0 +1,4 @@
+[Application Options]
+User = yourusername
+Passwd = yourpassword
+NoCheckSSL = true

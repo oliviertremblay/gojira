@@ -13,6 +13,7 @@ import (
 	"os"
 	"strings"
 	"bytes"
+
 )
 
 type Options struct {
@@ -143,7 +144,16 @@ func init() {
 }
 
 func main() {
-	_, err := parser.Parse()
+	err := parser.ParseIniFile(os.ExpandEnv("$HOME/.gojirarc"))
+	if err != nil {
+		log.Println(err)	
+	}
+	err = parser.ParseIniFile(".gojirarc")
+	if err != nil {
+		log.Println(err)
+	}	
+	_, err = parser.Parse()
+	
 	if err != nil {
 		panic(err)
 	}
