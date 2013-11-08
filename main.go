@@ -29,7 +29,7 @@ func main() {
 	}
     client := &http.Client{Transport: tr}
 	if Options.CurrentSprint {
-		resp, err := client.Get(fmt.Sprintf("https://%s:%s@jira.gammae.com/rest/api/2/search?jql=sprint+in+openSprints()", Options.User, Options.Passwd))
+		resp, err := client.Get(fmt.Sprintf("https://%s:%s@jira.gammae.com/rest/api/2/search?jql=sprint+in+openSprints()+order+by+rank", Options.User, Options.Passwd))
 		if err != nil{
 			panic(err)
 		}
