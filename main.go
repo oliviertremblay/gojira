@@ -8,10 +8,12 @@ import (
 	"errors"
 	"fmt"
 	"github.com/jessevdk/go-flags"
+	"io"
 	"log"
 	"net/http"
 	"os"
 	"strings"
+	"time"
 )
 
 type Issue struct {
@@ -71,24 +73,12 @@ func (ja *JiraClient) Search(searchoptions *SearchOptions) ([]*Issue, error) {
 		jqlstr = strings.Replace(searchoptions.JQL, " ", "+", -1)
 	}
 	url := fmt.Sprintf("https://%s:%s@jira.gammae.com/rest/api/2/search?jql=%s+order+by+rank", ja.User, ja.Passwd, jqlstr)
-	log.Println(url)
 	resp, err := ja.client.Get(url)
 	if err != nil {
 		return nil, err
 	}
-	js := make([]string, 0)
-	rdr := bufio.NewReader(resp.Body)
-	for {
-		s, err := rdr.ReadString('\n')
-		js = append(js, s)
-		if err != nil {
-			break
-		}
 
-	}
-	njs := strings.Join(js, "")
-	var obj interface{}
-	err = json.Unmarshal([]byte(njs), &obj)
+	obj, err := JsonToInterface(resp.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -122,6 +112,25 @@ func (ja *JiraClient) Search(searchoptions *SearchOptions) ([]*Issue, error) {
 
 	return result, nil
 }
+func JsonToInterface(reader io.Reader) (interface{}, error) {
+	rdr := bufio.NewReader(reader)
+	js := make([]string, 0)
+	for {
+		s, err := rdr.ReadString('\n')
+		js = append(js, s)
+		if err != nil {
+			break
+		}
+
+	}
+	njs := strings.Join(js, "")
+	var obj interface{}
+	err := json.Unmarshal([]byte(njs), &obj)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
 
 type Options struct {
 	User       string `short:"u" long:"user" description:"Your username"`
@@ -133,15 +142,63 @@ type Options struct {
 }
 
 type LogCommand struct {
-	MyLog bool `short:"l" long:"list-mine" description:"Show my log for current sprint"`
+	MyLog bool `short:"m" long:"mine" description:"Show my log for current sprint"`
 }
 
 var logCommand LogCommand
 
+type TimeLog struct {
+	Key     string
+	Seconds int
+}
+
+func (tl TimeLog) String() string {
+	t, _ := time.ParseDuration(fmt.Sprintf("%ds", tl.Seconds))
+
+	return fmt.Sprintf("%s : %s", tl.Key, fmt.Sprint(t))
+}
+
 func (lc *LogCommand) Execute(args []string) error {
 	jc = NewJiraClient(options)
 	if lc.MyLog || len(args) == 0 {
-		jc.Search(&SearchOptions{JQL: "timespent > 0 AND updated >= lastsundaybeforeperiod AND updated <= lastsaturdaybeforeperiod and project = projectname"})
+		lastsundaybeforeperiod, lastsaturdaybeforeperiod := time.Date(2013, 11, 10, 0, 0, 0, 0, time.Local), time.Date(2013, 11, 16, 0, 0, 0, 0, time.Local)
+		issues, _ := jc.Search(&SearchOptions{JQL: fmt.Sprintf("timespent > 0 AND updated >= '%s' AND updated <= '%s' and project = 'Traffic Division'", lastsundaybeforeperiod.Format("2006-01-02"), lastsaturdaybeforeperiod.Format("2006-01-02"))})
+		logs_for_times := map[time.Time][]TimeLog{}
+		for _, issue := range issues {
+			url := fmt.Sprintf("https://%s:%s@jira.gammae.com/rest/api/2/issue/%s/worklog", options.User, options.Passwd, issue.Key)
+			resp, _ := jc.client.Get(url)
+			worklog, _ := JsonToInterface(resp.Body)
+			logs_json, _ := jsonWalker("worklogs", worklog)
+			logs, ok := logs_json.([]interface{})
+			if ok {
+				for _, log := range logs {
+					//We got good json and it's by our user
+					authorjson, _ := jsonWalker("author/name", log)
+					if author, ok := authorjson.(string); ok && author == options.User {
+						dsjson, _ := jsonWalker("started", log)
+						if date_string, ok := dsjson.(string); ok {
+							//"2013-11-08T11:37:03.000-0500" <-- date format
+							precise_time, _ := time.Parse("2006-01-02T15:04:05.000-0700", date_string)
+							if precise_time.After(lastsundaybeforeperiod) && precise_time.Before(lastsaturdaybeforeperiod) {
+								date := time.Date(precise_time.Year(), precise_time.Month(), precise_time.Day(), 0, 0, 0, 0, precise_time.Location())
+								secondsjson, _ := jsonWalker("timeSpentSeconds", log)
+								seconds := int(secondsjson.(float64))
+								if _, ok := logs_for_times[date]; !ok {
+									logs_for_times[date] = make([]TimeLog, 0)
+								}
+								logs_for_times[date] = append(logs_for_times[date], TimeLog{issue.Key, seconds})
+							}
+						}
+					}
+				}
+			}
+		}
+		for t, l := range logs_for_times {
+			fmt.Println(t)
+			for _, singlelog := range l {
+				fmt.Println(singlelog)
+			}
+		}
 	} else {
 		key := args[0]
 		time := strings.Join(args[1:], " ")
