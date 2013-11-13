@@ -27,6 +27,10 @@ Mix and match previous three options for fun and profit.
 Get the worklog for a story
 ./gojira -n -c -u otremblay -p REDACTED | grep 1789 | grep -v "Story" | while read l; do x=$(echo $l | grep -o 'TDIV-[0-9]\+'); curl -k -u otremblay:REDACTED "https://jira.yourserver.com/rest/api/2/issue/$x/worklog"; done
 
+CONFIGURATION
+-------------
+gojira supports a configuration file ~/.gojirarc, see the example file provided: example.gojirarc 
+
 LICENSE
 -------
 

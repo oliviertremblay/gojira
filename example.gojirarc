@@ -2,3 +2,4 @@
 User = yourusername
 Passwd = yourpassword
 NoCheckSSL = true
+Server = yourjiraserver
