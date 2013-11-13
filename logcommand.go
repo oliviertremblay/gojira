@@ -50,7 +50,7 @@ func (lc *LogCommand) GetTimeLog(targetAuthor string, period Period, issue *Issu
 	issues, _ := lc.jc.Search(&SearchOptions{JQL: fmt.Sprintf("timespent > 0 AND updated >= '%s' AND updated <= '%s' and project = '%s'%s", period.Begin.Format("2006-01-02"), period.End.Format("2006-01-02"), options.Project, issuestring)})
 		logs_for_times := map[time.Time][]TimeLog{}
 		for _, issue := range issues {
-			url := fmt.Sprintf("https://%s:%s@jira.gammae.com/rest/api/2/issue/%s/worklog", options.User, options.Passwd, issue.Key)
+			url := fmt.Sprintf("https://%s:%s@%s/rest/api/2/issue/%s/worklog", options.User, options.Passwd,options.Server, issue.Key)
 			resp, _ := lc.jc.client.Get(url)
 			worklog, _ := JsonToInterface(resp.Body)
 			logs_json, _ := jsonWalker("worklogs", worklog)
@@ -111,7 +111,7 @@ func (lc *LogCommand) Execute(args []string) error {
 
 		postdata, _ := json.Marshal(map[string]string{"timeSpent": time})
 
-		url := fmt.Sprintf("https://%s:%s@jira.gammae.com/rest/api/2/issue/%s/worklog", options.User, options.Passwd, key)
+		url := fmt.Sprintf("https://%s:%s@%s/rest/api/2/issue/%s/worklog", options.User, options.Passwd,options.Server, key)
 		resp, err := jc.client.Post(url, "application/json", bytes.NewBuffer(postdata))
 		if err != nil {
 			panic(err)

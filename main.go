@@ -13,6 +13,7 @@ type Options struct {
 	NoCheckSSL bool   `short:"n" long:"no-check-ssl" description:"Don't check ssl validity"`
 	UseStdIn   bool   `long:"stdin"`
 	Project    string `short:"p" long:"project"`
+	Server     string `short:"s" long:"server" description:"Jira server (just the domain name)"`
 }
 var debug bool
 var options Options

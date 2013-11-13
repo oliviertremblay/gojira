@@ -15,6 +15,7 @@ import (
 type JiraClient struct {
 	client       *http.Client
 	User, Passwd string
+	Server string
 }
 
 func NewJiraClient(options Options) *JiraClient {
@@ -23,7 +24,7 @@ func NewJiraClient(options Options) *JiraClient {
 	}
 
 	client := &http.Client{Transport: tr}
-	return &JiraClient{client, options.User, options.Passwd}
+	return &JiraClient{client, options.User, options.Passwd, options.Server}
 
 }
 
@@ -53,7 +54,7 @@ func (ja *JiraClient) Search(searchoptions *SearchOptions) ([]*Issue, error) {
 	} else {
 		jqlstr = strings.Replace(searchoptions.JQL, " ", "+", -1)
 	}
-	url := fmt.Sprintf("https://%s:%s@jira.gammae.com/rest/api/2/search?jql=%s+order+by+rank", ja.User, ja.Passwd, jqlstr)
+	url := fmt.Sprintf("https://%s:%s@%s/rest/api/2/search?jql=%s+order+by+rank", ja.User, ja.Passwd,ja.Server, jqlstr)
 	resp, err := ja.client.Get(url)
 	if err != nil {
 		return nil, err
