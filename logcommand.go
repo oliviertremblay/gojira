@@ -20,7 +20,7 @@ func init(){
 type LogCommand struct {
 	MyLog bool `short:"m" long:"mine" description:"Show my log for current sprint"`
 	Author string `short:"a" long:"author" description:"Show log for given author"`
-	jc JiraClient
+	jc *JiraClient
 }
 
 var logCommand LogCommand
@@ -89,6 +89,7 @@ func (lc *LogCommand) GetTimeLog(targetAuthor string, period Period, issue *Issu
 
 func (lc *LogCommand) Execute(args []string) error {
 	jc := NewJiraClient(options)
+	lc.jc = jc
 	if lc.MyLog || len(args) < 2 {
 		author := ""
 		if lc.MyLog {
