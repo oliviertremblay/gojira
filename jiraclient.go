@@ -33,6 +33,7 @@ type SearchOptions struct {
 	Project       string //Limit search to a specific project
 	CurrentSprint bool   //Limit search to stories in current sprint
 	Open          bool   //Limit search to open issues
+    Issue         string //Limit search to a single issue  
 	JQL           string //Pure JQL query, has precedence over any other option
 }
 
@@ -46,6 +47,10 @@ func (ja *JiraClient) Search(searchoptions *SearchOptions) ([]*Issue, error) {
 		if searchoptions.Open {
 			jql = append(jql, "status+=+'open'")
 		}
+        if searchoptions.Issue != "" {
+            searchoptions.Issue = strings.Replace(searchoptions.Issue, " ", "+", -1)
+			jql = append(jql, fmt.Sprintf("issue+=+'%s'", searchoptions.Issue))
+		}
 		if searchoptions.Project != "" {
 			searchoptions.Project = strings.Replace(searchoptions.Project, " ", "+", -1)
 			jql = append(jql, fmt.Sprintf("project+=+'%s'", searchoptions.Project))
@@ -55,6 +60,8 @@ func (ja *JiraClient) Search(searchoptions *SearchOptions) ([]*Issue, error) {
 		jqlstr = strings.Replace(searchoptions.JQL, " ", "+", -1)
 	}
 	url := fmt.Sprintf("https://%s:%s@%s/rest/api/2/search?jql=%s+order+by+rank", ja.User, ja.Passwd,ja.Server, jqlstr)
+        fmt.Println(url)
+
 	resp, err := ja.client.Get(url)
 	if err != nil {
 		return nil, err

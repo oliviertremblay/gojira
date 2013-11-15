@@ -17,14 +17,18 @@ func init(){
 type ListCommand struct {
 	CurrentSprint bool   `short:"c" long:"current-sprint" description:"Show stories for current sprint"`
 	Open          bool   `short:"o" long:"open"`
+    Issue         string `short:"i" long:"issue"`
 }
 
 var listCommand ListCommand
 
 //Implements go-flags's Command interface
 func (lc *ListCommand) Execute(args []string) error { //ListTasks(){//
+    if(options.Verbose) {
+        fmt.Println("In List Command")
+    }
 	jc := NewJiraClient(options)
-	issues, err := jc.Search(&SearchOptions{options.Project, lc.Open, lc.CurrentSprint, ""})
+	issues, err := jc.Search(&SearchOptions{options.Project, lc.Open, lc.CurrentSprint, lc.Issue, ""})
 	if err != nil {
 		return err
 	}
