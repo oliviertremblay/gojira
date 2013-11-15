@@ -1,21 +1,21 @@
 package main
 
 import (
-	"net/http"
-	"crypto/tls"
-	"strings"
-	"fmt"
 	"bufio"
-	"io"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"strings"
 )
 
 //Worker object in charge of communicating with Jira, wrapper to the API
 type JiraClient struct {
 	client       *http.Client
 	User, Passwd string
-	Server string
+	Server       string
 }
 
 func NewJiraClient(options Options) *JiraClient {
@@ -50,11 +50,12 @@ func (ja *JiraClient) Search(searchoptions *SearchOptions) ([]*Issue, error) {
 			searchoptions.Project = strings.Replace(searchoptions.Project, " ", "+", -1)
 			jql = append(jql, fmt.Sprintf("project+=+'%s'", searchoptions.Project))
 		}
-		jqlstr = strings.Join(jql, "+AND+")
+
+		jqlstr = strings.Join(jql, "+AND+") + "order+by+rank"
 	} else {
 		jqlstr = strings.Replace(searchoptions.JQL, " ", "+", -1)
 	}
-	url := fmt.Sprintf("https://%s:%s@%s/rest/api/2/search?jql=%s+order+by+rank", ja.User, ja.Passwd,ja.Server, jqlstr)
+	url := fmt.Sprintf("https://%s:%s@%s/rest/api/2/search?jql=%s", ja.User, ja.Passwd, ja.Server, jqlstr)
 	resp, err := ja.client.Get(url)
 	if err != nil {
 		return nil, err
@@ -72,26 +73,12 @@ func (ja *JiraClient) Search(searchoptions *SearchOptions) ([]*Issue, error) {
 	}
 	result := []*Issue{}
 	for _, v := range issuesSlice {
-		issue := new(Issue)
-		key, err := jsonWalker("key", v)
-		issuetype, err := jsonWalker("fields/issuetype/name", v)
-		summary, err := jsonWalker("fields/summary", v)
-		parentJS, err := jsonWalker("fields/parent/key", v)
-		var parent string
-		parent, _ = parentJS.(string)
+		iss, err := NewIssueFromIface(v)
+		if err == nil {
+			result = append(result, iss)
+		}
 		if err != nil {
-			parent = ""
-		}
-		if parent != "" {
-			parent = fmt.Sprintf(" of %s", parent)
-		}
-		ok, ok2, ok3 := true, true, true
-		issue.Key, ok = key.(string)
-		issue.Parent = parent
-		issue.Summary, ok2 = summary.(string)
-		issue.Type, ok3 = issuetype.(string)
-		if ok && ok2 && ok3 {
-			result = append(result, issue)
+			fmt.Println(err)
 		}
 
 	}
@@ -99,6 +86,58 @@ func (ja *JiraClient) Search(searchoptions *SearchOptions) ([]*Issue, error) {
 	return result, nil
 }
 
+func NewIssueFromIface(obj interface{}) (*Issue, error) {
+	issue := new(Issue)
+	key, err := jsonWalker("key", obj)
+	issuetype, err := jsonWalker("fields/issuetype/name", obj)
+	summary, err := jsonWalker("fields/summary", obj)
+	parentJS, err := jsonWalker("fields/parent/key", obj)
+	descriptionjs, err := jsonWalker("fields/description", obj)
+	var parent string
+	parent, _ = parentJS.(string)
+	if err != nil {
+		parent = ""
+	}
+	if parent != "" {
+		parent = fmt.Sprintf(" of %s", parent)
+	}
+	ok, ok2, ok3 := true, true, true
+	issue.Key, ok = key.(string)
+	issue.Parent = parent
+	issue.Summary, ok2 = summary.(string)
+	issue.Type, ok3 = issuetype.(string)
+	issue.Description, _ = descriptionjs.(string)
+	if !(ok && ok2 && ok3) {
+		return nil, newIssueError("Bad Issue")
+	}
+
+	return issue, nil
+}
+
+type IssueError struct {
+	message string
+}
+
+func (ie *IssueError) Error() string {
+	return ie.message
+}
+
+func newIssueError(msg string) *IssueError {
+	return &IssueError{msg}
+}
+
+func (jc *JiraClient) GetIssue(issueKey string) (*Issue, error) {
+	resp, err := jc.client.Get(fmt.Sprintf("https://%s:%s@%s/rest/api/2/issue/%s", jc.User, jc.Passwd, jc.Server, issueKey))
+	if err != nil {
+		panic(err)
+	}
+	obj, err := JsonToInterface(resp.Body)
+	iss, err := NewIssueFromIface(obj)
+	if err != nil {
+		return nil, err
+	}
+	return iss, nil
+}
 
 //Helper function to read a json input and unmarshal it to an interface{} object
 func JsonToInterface(reader io.Reader) (interface{}, error) {
@@ -140,4 +179,3 @@ func jsonWalker(path string, json interface{}) (interface{}, error) {
 	}
 	return nil, errors.New("Woooops")
 }
-
