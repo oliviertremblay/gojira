@@ -1,7 +1,7 @@
 README
 ------
 
-Please maintain TODO
+Please maintain TODO/README
 
 INSTALLATION
 ------------
@@ -27,6 +27,7 @@ gojira list     //ordered by ranking by default
 gojira list -c  //current sprint
 gojira list -o  //open tasks
 gojira list -p "Project Name" //Project filter
+gojira list -i "Issue-ID" // Filter by issue-id
 
 Mix and match previous three options for fun and profit.
 
