@@ -24,6 +24,9 @@ var listCommand ListCommand
 //Implements go-flags's Command interface
 func (lc *ListCommand) Execute(args []string) error { //ListTasks(){//
 	jc := NewJiraClient(options)
+	if len(args) == 1 && (!lc.Open && !lc.CurrentSprint && lc.JQL == "") {
+		lc.JQL = fmt.Sprintf("key = %s or parent = %s order by rank", args[0], args[0])
+	}
 	issues, err := jc.Search(&SearchOptions{options.Project, lc.Open, lc.CurrentSprint, lc.JQL})
 	if err != nil {
 		return err

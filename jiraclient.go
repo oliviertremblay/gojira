@@ -2,11 +2,13 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 )
@@ -137,6 +139,37 @@ func (jc *JiraClient) GetIssue(issueKey string) (*Issue, error) {
 		return nil, err
 	}
 	return iss, nil
+}
+
+func (jc *JiraClient) UpdateIssue(issuekey string, postjs map[string]interface{}) error {
+	postdata, err := json.Marshal(map[string]interface{}{"update": postjs})
+
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequest("PUT", fmt.Sprintf("https://%s:%s@%s/rest/api/2/issue/%s", jc.User, jc.Passwd, jc.Server, issuekey), bytes.NewBuffer(postdata))
+	req.Header.Add("Content-Type", "application/json")
+	if err != nil {
+		return err
+	}
+	resp, err := jc.client.Do(req)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode != 204 {
+		log.Println(resp.StatusCode)
+		return &JiraClientError{"Bad request"}
+	}
+	log.Println(fmt.Sprintf("Issue %s updated!", issuekey))
+	return nil
+}
+
+type JiraClientError struct {
+	msg string
+}
+
+func (jce *JiraClientError) Error() string {
+	return jce.msg
 }
 
 //Helper function to read a json input and unmarshal it to an interface{} object

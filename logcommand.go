@@ -18,9 +18,10 @@ func init() {
 }
 
 type LogCommand struct {
-	MyLog  bool   `short:"m" long:"mine" description:"Show my log for current sprint"`
-	Author string `short:"a" long:"author" description:"Show log for given author"`
-	jc     *JiraClient
+	MyLog     bool   `short:"m" long:"mine" description:"Show my log for current sprint"`
+	Author    string `short:"a" long:"author" description:"Show log for given author"`
+	Yesterday bool   `short:"y" long:"yesterday" description:"Log time yesterday"`
+	jc        *JiraClient
 }
 
 var logCommand LogCommand
@@ -67,7 +68,7 @@ func (lc *LogCommand) GetTimeLog(targetAuthor string, period Period, issue *Issu
 					dsjson, _ := jsonWalker("started", log)
 					if date_string, ok := dsjson.(string); ok {
 						//"2013-11-08T11:37:03.000-0500" <-- date format
-						precise_time, _ := time.Parse("2006-01-02T15:04:05.000-0700", date_string)
+						precise_time, _ := time.Parse(JIRA_TIME_FORMAT, date_string)
 						if precise_time.After(lastsundaybeforeperiod) && precise_time.Before(lastsaturdaybeforeperiod) {
 							date := time.Date(precise_time.Year(), precise_time.Month(), precise_time.Day(), 0, 0, 0, 0, precise_time.Location())
 							secondsjson, _ := jsonWalker("timeSpentSeconds", log)
@@ -115,9 +116,12 @@ func (lc *LogCommand) Execute(args []string) error {
 		}
 	} else {
 		key := args[0]
-		time := strings.Join(args[1:], " ")
-
-		postdata, _ := json.Marshal(map[string]string{"timeSpent": time})
+		timeSpent := strings.Join(args[1:], " ")
+		started := time.Now()
+		if lc.Yesterday {
+			started = time.Unix(started.Unix()-SECONDS_IN_A_DAY, 0)
+		}
+		postdata, _ := json.Marshal(map[string]string{"timeSpent": timeSpent, "started": started.Format(JIRA_TIME_FORMAT)})
 
 		url := fmt.Sprintf("https://%s:%s@%s/rest/api/2/issue/%s/worklog", options.User, options.Passwd, options.Server, key)
 		resp, err := jc.client.Post(url, "application/json", bytes.NewBuffer(postdata))
@@ -132,3 +136,6 @@ func (lc *LogCommand) Execute(args []string) error {
 	}
 	return nil
 }
+
+const JIRA_TIME_FORMAT = "2006-01-02T15:04:05.000-0700"
+const SECONDS_IN_A_DAY = 24 * 60 * 60
