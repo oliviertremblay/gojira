@@ -4,7 +4,7 @@ import (
 	"fmt"
 )
 
-func init(){
+func init() {
 	parser.AddCommand("list",
 		"List Jira stories",
 		"The list command list stories and their subtasks on stdout",
@@ -12,12 +12,12 @@ func init(){
 
 }
 
-
-//Command made to list 
+//Command made to list
 type ListCommand struct {
 	CurrentSprint bool   `short:"c" long:"current-sprint" description:"Show stories for current sprint"`
 	Open          bool   `short:"o" long:"open"`
     Issue         string `short:"i" long:"issue"`
+	JQL           string `short:"q" long:"jql" description:"Custom JQL query"`
 }
 
 var listCommand ListCommand
@@ -28,7 +28,7 @@ func (lc *ListCommand) Execute(args []string) error { //ListTasks(){//
         fmt.Println("In List Command")
     }
 	jc := NewJiraClient(options)
-	issues, err := jc.Search(&SearchOptions{options.Project, lc.Open, lc.CurrentSprint, lc.Issue, ""})
+	issues, err := jc.Search(&SearchOptions{options.Project, lc.Open, lc.CurrentSprint, lc.Issue, lc.JQL})
 	if err != nil {
 		return err
 	}
