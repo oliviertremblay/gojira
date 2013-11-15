@@ -49,7 +49,7 @@ func (ja *JiraClient) Search(searchoptions *SearchOptions) ([]*Issue, error) {
 		}
         if searchoptions.Issue != "" {
             searchoptions.Issue = strings.Replace(searchoptions.Issue, " ", "+", -1)
-			jql = append(jql, fmt.Sprintf("issue+=+'%s'", searchoptions.Issue))
+			jql = append(jql, fmt.Sprintf("issue+=+'%s'+or+parent+=+'%s'", searchoptions.Issue, searchoptions.Issue))
 		}
 		if searchoptions.Project != "" {
 			searchoptions.Project = strings.Replace(searchoptions.Project, " ", "+", -1)
