@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"sort"
 	"strings"
 	"time"
 )
@@ -32,14 +33,57 @@ type TimeLog struct {
 }
 
 func (tl TimeLog) String() string {
-	t, _ := time.ParseDuration(fmt.Sprintf("%ds", tl.Seconds))
+	return fmt.Sprintf("%s : %s", tl.Key, prettySeconds(tl.Seconds))
+}
 
-	return fmt.Sprintf("%s : %s", tl.Key, fmt.Sprint(t))
+func prettySeconds(seconds int) string {
+	t, _ := time.ParseDuration(fmt.Sprintf("%ds", seconds))
+	return fmt.Sprint(t)
+
 }
 
 type Period struct {
 	Begin time.Time
 	End   time.Time
+}
+type TimeLogMap map[time.Time][]TimeLog
+type TimeSlice []time.Time
+
+func (ts TimeSlice) Len() int {
+	return len(ts)
+}
+
+func (ts TimeSlice) Swap(i, j int) {
+	ts[i], ts[j] = ts[j], ts[i]
+}
+
+func (ts TimeSlice) Less(i, j int) bool {
+	return ts[i].Before(ts[j])
+}
+
+func (tlm TimeLogMap) GetSortedKeys() []time.Time {
+	times := make(TimeSlice, 0)
+	for k, _ := range tlm {
+		times = append(times, k)
+	}
+	sort.Sort(times)
+	return times
+}
+
+func (tlm TimeLogMap) SumForKey(k time.Time) int {
+	seconds := 0
+	for _, v := range tlm[k] {
+		seconds += v.Seconds
+	}
+	return seconds
+}
+
+func (tlm TimeLogMap) SumForMap() int {
+	seconds := 0
+	for k, _ := range tlm {
+		seconds += tlm.SumForKey(k)
+	}
+	return seconds
 }
 
 func (lc *LogCommand) GetTimeLog(targetAuthor string, period Period, issue *Issue) error {
@@ -52,8 +96,8 @@ func (lc *LogCommand) GetTimeLog(targetAuthor string, period Period, issue *Issu
 	if err != nil {
 		return err
 	}
-	println(len(issues))
-	logs_for_times := map[time.Time][]TimeLog{}
+
+	logs_for_times := TimeLogMap{}
 	for _, issue := range issues {
 		url := fmt.Sprintf("https://%s:%s@%s/rest/api/2/issue/%s/worklog", options.User, options.Passwd, options.Server, issue.Key)
 		resp, _ := lc.jc.client.Get(url)
@@ -83,12 +127,14 @@ func (lc *LogCommand) GetTimeLog(targetAuthor string, period Period, issue *Issu
 			}
 		}
 	}
-	for t, l := range logs_for_times {
-		fmt.Println(t)
-		for _, singlelog := range l {
+	for _, l := range logs_for_times.GetSortedKeys() {
+		fmt.Println(l)
+		for _, singlelog := range logs_for_times[l] {
 			fmt.Println(singlelog)
 		}
+		fmt.Println(fmt.Sprintf("Total for day: %s", prettySeconds(logs_for_times.SumForKey(l))))
 	}
+	fmt.Println(fmt.Sprintf("Total for period: %s", prettySeconds(logs_for_times.SumForMap())))
 	return nil
 }
 
