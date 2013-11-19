@@ -35,7 +35,7 @@ type SearchOptions struct {
 	Project       string //Limit search to a specific project
 	CurrentSprint bool   //Limit search to stories in current sprint
 	Open          bool   //Limit search to open issues
-    Issue         string //Limit search to a single issue  
+	Issue         string //Limit search to a single issue
 	JQL           string //Pure JQL query, has precedence over any other option
 }
 
@@ -49,8 +49,8 @@ func (ja *JiraClient) Search(searchoptions *SearchOptions) ([]*Issue, error) {
 		if searchoptions.Open {
 			jql = append(jql, "status+=+'open'")
 		}
-        if searchoptions.Issue != "" {
-            searchoptions.Issue = strings.Replace(searchoptions.Issue, " ", "+", -1)
+		if searchoptions.Issue != "" {
+			searchoptions.Issue = strings.Replace(searchoptions.Issue, " ", "+", -1)
 			jql = append(jql, fmt.Sprintf("issue+=+'%s'+or+parent+=+'%s'", searchoptions.Issue, searchoptions.Issue))
 		}
 		if searchoptions.Project != "" {
@@ -58,12 +58,15 @@ func (ja *JiraClient) Search(searchoptions *SearchOptions) ([]*Issue, error) {
 			jql = append(jql, fmt.Sprintf("project+=+'%s'", searchoptions.Project))
 		}
 
-		jqlstr = strings.Join(jql, "+AND+") + "order+by+rank"
+		jqlstr = strings.Join(jql, "+AND+") + "+order+by+rank"
 	} else {
 		jqlstr = strings.Replace(searchoptions.JQL, " ", "+", -1)
 	}
-	url := fmt.Sprintf("https://%s:%s@%s/rest/api/2/search?jql=%s", ja.User, ja.Passwd, ja.Server, jqlstr)
-	resp, err := ja.client.Get(url)
+	url := fmt.Sprintf("https://%s/rest/api/2/search?jql=%s", ja.Server, jqlstr)
+	if options.Verbose {
+		fmt.Println(url)
+	}
+	resp, err := ja.Get(url)
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +137,8 @@ func newIssueError(msg string) *IssueError {
 }
 
 func (jc *JiraClient) GetIssue(issueKey string) (*Issue, error) {
-	resp, err := jc.client.Get(fmt.Sprintf("https://%s:%s@%s/rest/api/2/issue/%s", jc.User, jc.Passwd, jc.Server, issueKey))
+
+	resp, err := jc.Get(fmt.Sprintf("https://%s/rest/api/2/issue/%s", jc.Server, issueKey))
 	if err != nil {
 		panic(err)
 	}
@@ -152,7 +156,8 @@ func (jc *JiraClient) UpdateIssue(issuekey string, postjs map[string]interface{}
 	if err != nil {
 		return err
 	}
-	req, err := http.NewRequest("PUT", fmt.Sprintf("https://%s:%s@%s/rest/api/2/issue/%s", jc.User, jc.Passwd, jc.Server, issuekey), bytes.NewBuffer(postdata))
+	req, err := http.NewRequest("PUT", fmt.Sprintf("https://%s/rest/api/2/issue/%s", jc.Server, issuekey), bytes.NewBuffer(postdata))
+	req.SetBasicAuth(jc.User, jc.Passwd)
 	req.Header.Add("Content-Type", "application/json")
 	if err != nil {
 		return err
@@ -167,6 +172,18 @@ func (jc *JiraClient) UpdateIssue(issuekey string, postjs map[string]interface{}
 	}
 	log.Println(fmt.Sprintf("Issue %s updated!", issuekey))
 	return nil
+}
+
+func (jc *JiraClient) Get(url string) (*http.Response, error) {
+	req, _ := http.NewRequest("GET", url, nil)
+	req.SetBasicAuth(jc.User, jc.Passwd)
+	return jc.client.Do(req)
+}
+
+func (jc *JiraClient) Post(url, mimetype string, rdr io.Reader) (*http.Response, error) {
+	req, _ := http.NewRequest("POST", url, rdr)
+	req.Header.Add("Content-Type", mimetype)
+	return jc.client.Do(req)
 }
 
 type JiraClientError struct {

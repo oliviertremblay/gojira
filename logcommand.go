@@ -19,9 +19,10 @@ func init() {
 }
 
 type LogCommand struct {
-	MyLog     bool   `short:"m" long:"mine" description:"Show my log for current sprint"`
+	MyLog     bool   `short:"m" long:"mine" description:"Show my log for current sprint" default:"true" group:"Application Options"`
 	Author    string `short:"a" long:"author" description:"Show log for given author"`
-	Yesterday bool   `short:"y" long:"yesterday" description:"Log time yesterday"`
+	Yesterday bool   `short:"y" long:"yesterday" description:"Log time yesterday. Has precedence over -d."`
+	Day       string `short:"d" long:"day" description:"Day, in the format 'yyyy-mm-dd'"`
 	jc        *JiraClient
 }
 
@@ -29,6 +30,7 @@ var logCommand LogCommand
 
 type TimeLog struct {
 	Key     string
+	Date    time.Time
 	Seconds int
 }
 
@@ -87,46 +89,60 @@ func (tlm TimeLogMap) SumForMap() int {
 }
 
 func (lc *LogCommand) GetTimeLog(targetAuthor string, period Period, issue *Issue) error {
-	lastsundaybeforeperiod, lastsaturdaybeforeperiod := time.Date(2013, 11, 10, 0, 0, 0, 0, time.Local), time.Date(2013, 11, 16, 0, 0, 0, 0, time.Local)
 	issuestring := ""
 	if issue != nil {
 		issuestring = fmt.Sprintf(" AND key = '%s'", issue.Key)
 	}
-	issues, err := lc.jc.Search(&SearchOptions{JQL: fmt.Sprintf("timespent > 0 AND updated >= '%s' AND updated <= '%s' and project = '%s'%s", period.Begin.Format("2006-01-02"), period.End.Format("2006-01-02"), options.Project, issuestring)})
+	issues, err := lc.jc.Search(&SearchOptions{JQL: fmt.Sprintf("timespent > 0 AND updated >= '%s' and project = '%s'%s", period.Begin.Format("2006-01-02"), options.Project, issuestring)})
 	if err != nil {
 		return err
 	}
 
 	logs_for_times := TimeLogMap{}
+	logchan := make(chan TimeLogMap)
 	for _, issue := range issues {
-		url := fmt.Sprintf("https://%s:%s@%s/rest/api/2/issue/%s/worklog", options.User, options.Passwd, options.Server, issue.Key)
-		resp, _ := lc.jc.client.Get(url)
-		worklog, _ := JsonToInterface(resp.Body)
-		logs_json, _ := jsonWalker("worklogs", worklog)
-		logs, ok := logs_json.([]interface{})
-		if ok {
-			for _, log := range logs {
-				//We got good json and it's by our user
-				authorjson, _ := jsonWalker("author/name", log)
-				if author, ok := authorjson.(string); ok && (author == targetAuthor || targetAuthor == "") {
-					dsjson, _ := jsonWalker("started", log)
-					if date_string, ok := dsjson.(string); ok {
-						//"2013-11-08T11:37:03.000-0500" <-- date format
-						precise_time, _ := time.Parse(JIRA_TIME_FORMAT, date_string)
-						if precise_time.After(lastsundaybeforeperiod) && precise_time.Before(lastsaturdaybeforeperiod) {
-							date := time.Date(precise_time.Year(), precise_time.Month(), precise_time.Day(), 0, 0, 0, 0, precise_time.Location())
-							secondsjson, _ := jsonWalker("timeSpentSeconds", log)
-							seconds := int(secondsjson.(float64))
-							if _, ok := logs_for_times[date]; !ok {
-								logs_for_times[date] = make([]TimeLog, 0)
+		go func(issue *Issue) {
+			logs_for_times := TimeLogMap{}
+			url := fmt.Sprintf("https://%s/rest/api/2/issue/%s/worklog", options.Server, issue.Key)
+			resp, _ := lc.jc.Get(url)
+			worklog, _ := JsonToInterface(resp.Body)
+			logs_json, _ := jsonWalker("worklogs", worklog)
+			logs, ok := logs_json.([]interface{})
+			if ok {
+				for _, log := range logs {
+					//We got good json and it's by our user
+					authorjson, _ := jsonWalker("author/name", log)
+					if author, ok := authorjson.(string); ok && (author == targetAuthor || targetAuthor == "") {
+						dsjson, _ := jsonWalker("started", log)
+						if date_string, ok := dsjson.(string); ok {
+							//"2013-11-08T11:37:03.000-0500" <-- date format
+							precise_time, _ := time.Parse(JIRA_TIME_FORMAT, date_string)
+							if precise_time.After(period.Begin) && precise_time.Before(period.End) {
+								date := time.Date(precise_time.Year(), precise_time.Month(), precise_time.Day(), 0, 0, 0, 0, precise_time.Location())
+								secondsjson, _ := jsonWalker("timeSpentSeconds", log)
+								seconds := int(secondsjson.(float64))
+								if _, ok := logs_for_times[date]; !ok {
+									logs_for_times[date] = make([]TimeLog, 0)
+								}
+								logs_for_times[date] = append(logs_for_times[date], TimeLog{issue.Key, date, seconds})
 							}
-							logs_for_times[date] = append(logs_for_times[date], TimeLog{issue.Key, seconds})
 						}
 					}
 				}
+				logchan <- logs_for_times
 			}
-		}
+		}(issue)
 	}
+
+	for _, _ = range issues {
+		tlm := <-logchan
+		for k, v := range tlm {
+			logs_for_times[k] = append(logs_for_times[k], v...)
+		}
+		fmt.Print(".")
+	}
+	fmt.Print("\n")
+
 	for _, l := range logs_for_times.GetSortedKeys() {
 		fmt.Println(l)
 		for _, singlelog := range logs_for_times[l] {
@@ -141,6 +157,11 @@ func (lc *LogCommand) GetTimeLog(targetAuthor string, period Period, issue *Issu
 func (lc *LogCommand) Execute(args []string) error {
 	jc := NewJiraClient(options)
 	lc.jc = jc
+	n := time.Now()
+	if d, err := time.Parse("2006-01-02", lc.Day); err == nil {
+		d = time.Date(d.Year(), d.Month(), d.Day(), time.Now().Hour(), time.Now().Minute(), time.Now().Second(), time.Now().Nanosecond(), time.Local)
+		n = d
+	}
 	if lc.MyLog || len(args) < 2 {
 		author := ""
 		if lc.MyLog {
@@ -153,9 +174,10 @@ func (lc *LogCommand) Execute(args []string) error {
 		if len(args) > 0 {
 			issue = &Issue{Key: args[0]}
 		}
-		n := time.Now()
+
 		beg := time.Date(n.Year(), n.Month(), n.Day()-int(n.Weekday()), 0, 0, 0, 0, n.Location())
 		end := time.Date(n.Year(), n.Month(), n.Day()-int(n.Weekday())+6, 0, 0, 0, 0, n.Location())
+		fmt.Println(fmt.Sprintf("Time sheet for week starting on %v and ending on %v", beg, end))
 		err := lc.GetTimeLog(author, Period{beg, end}, issue)
 		if err != nil {
 			return err
@@ -163,14 +185,14 @@ func (lc *LogCommand) Execute(args []string) error {
 	} else {
 		key := args[0]
 		timeSpent := strings.Join(args[1:], " ")
-		started := time.Now()
+		started := n
 		if lc.Yesterday {
-			started = time.Unix(started.Unix()-SECONDS_IN_A_DAY, 0)
+			started = time.Unix(n.Unix()-SECONDS_IN_A_DAY, 0)
 		}
 		postdata, _ := json.Marshal(map[string]string{"timeSpent": timeSpent, "started": started.Format(JIRA_TIME_FORMAT)})
 
-		url := fmt.Sprintf("https://%s:%s@%s/rest/api/2/issue/%s/worklog", options.User, options.Passwd, options.Server, key)
-		resp, err := jc.client.Post(url, "application/json", bytes.NewBuffer(postdata))
+		url := fmt.Sprintf("https://%s/rest/api/2/issue/%s/worklog", options.Server, key)
+		resp, err := jc.Post(url, "application/json", bytes.NewBuffer(postdata))
 		if err != nil {
 			panic(err)
 		}
