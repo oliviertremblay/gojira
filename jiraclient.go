@@ -183,6 +183,7 @@ func (jc *JiraClient) Get(url string) (*http.Response, error) {
 func (jc *JiraClient) Post(url, mimetype string, rdr io.Reader) (*http.Response, error) {
 	req, _ := http.NewRequest("POST", url, rdr)
 	req.Header.Add("Content-Type", mimetype)
+	req.SetBasicAuth(jc.User, jc.Passwd)
 	return jc.client.Do(req)
 }
 

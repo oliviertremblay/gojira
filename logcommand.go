@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"sort"
 	"strings"
@@ -199,6 +200,11 @@ func (lc *LogCommand) Execute(args []string) error {
 		if resp.StatusCode == 201 {
 			log.Println("Log successful")
 		} else {
+			if options.Verbose {
+				log.Println(resp)
+				s, _ := ioutil.ReadAll(resp.Body)
+				log.Println(string(s))
+			}
 			log.Println("Log Failed!")
 		}
 	}
