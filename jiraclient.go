@@ -103,6 +103,8 @@ func NewIssueFromIface(obj interface{}) (*Issue, error) {
 	summary, err := jsonWalker("fields/summary", obj)
 	parentJS, err := jsonWalker("fields/parent/key", obj)
 	descriptionjs, err := jsonWalker("fields/description", obj)
+	statusjs, err := jsonWalker("fields/status/name", obj)
+	assigneejs, err := jsonWalker("fields/assignee/name", obj)
 	var parent string
 	parent, _ = parentJS.(string)
 	if err != nil {
@@ -117,6 +119,8 @@ func NewIssueFromIface(obj interface{}) (*Issue, error) {
 	issue.Summary, ok2 = summary.(string)
 	issue.Type, ok3 = issuetype.(string)
 	issue.Description, _ = descriptionjs.(string)
+	issue.Status, _ = statusjs.(string)
+	issue.Assignee, _ = assigneejs.(string)
 	if !(ok && ok2 && ok3) {
 		return nil, newIssueError("Bad Issue")
 	}
@@ -156,13 +160,8 @@ func (jc *JiraClient) UpdateIssue(issuekey string, postjs map[string]interface{}
 	if err != nil {
 		return err
 	}
-	req, err := http.NewRequest("PUT", fmt.Sprintf("https://%s/rest/api/2/issue/%s", jc.Server, issuekey), bytes.NewBuffer(postdata))
-	req.SetBasicAuth(jc.User, jc.Passwd)
-	req.Header.Add("Content-Type", "application/json")
-	if err != nil {
-		return err
-	}
-	resp, err := jc.client.Do(req)
+	resp, err := jc.Put(fmt.Sprintf("https://%s/rest/api/2/issue/%s", jc.Server, issuekey), "application/json", bytes.NewBuffer(postdata))
+
 	if err != nil {
 		return err
 	}
@@ -175,16 +174,39 @@ func (jc *JiraClient) UpdateIssue(issuekey string, postjs map[string]interface{}
 }
 
 func (jc *JiraClient) Get(url string) (*http.Response, error) {
-	req, _ := http.NewRequest("GET", url, nil)
-	req.SetBasicAuth(jc.User, jc.Passwd)
+	req, err := jc.newRequest("GET", url, "", nil)
+	if err != nil {
+		return nil, err
+	}
 	return jc.client.Do(req)
 }
 
 func (jc *JiraClient) Post(url, mimetype string, rdr io.Reader) (*http.Response, error) {
-	req, _ := http.NewRequest("POST", url, rdr)
-	req.Header.Add("Content-Type", mimetype)
-	req.SetBasicAuth(jc.User, jc.Passwd)
+	req, err := jc.newRequest("POST", url, mimetype, rdr)
+	if err != nil {
+		return nil, err
+	}
 	return jc.client.Do(req)
+}
+
+func (jc *JiraClient) Put(url, mimetype string, rdr io.Reader) (*http.Response, error) {
+	req, err := jc.newRequest("PUT", url, mimetype, rdr)
+	if err != nil {
+		return nil, err
+	}
+	return jc.client.Do(req)
+}
+
+func (jc *JiraClient) newRequest(verb, url, mimetype string, rdr io.Reader) (*http.Request, error) {
+	req, err := http.NewRequest(verb, url, rdr)
+	if err != nil {
+		return nil, err
+	}
+	if mimetype != "" {
+		req.Header.Add("Content-Type", mimetype)
+	}
+	req.SetBasicAuth(jc.User, jc.Passwd)
+	return req, nil
 }
 
 type JiraClientError struct {
