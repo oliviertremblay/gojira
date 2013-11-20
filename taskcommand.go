@@ -5,7 +5,11 @@ type TaskCommand struct{}
 var taskCommand TaskCommand
 
 func init() {
-	parser.AddCommand("task", "Work with tasks", "Allows you to work with stories and tasks.", &taskCommand)
+	parser.AddCommand("task", "Work with tasks",
+		`gojira task TASK-1234 start|stop|grab
+
+Allows you to work with stories and tasks.
+`, &taskCommand)
 }
 
 func (tc *TaskCommand) Execute(args []string) error {
