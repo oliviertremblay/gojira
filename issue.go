@@ -164,31 +164,3 @@ func (i *Issue) getTransitionId(transition string, jc *JiraClient) (string, erro
 	return "", &IssueError{"Transition ID not found"}
 
 }
-
-func (i *Issue) CreateSubTask(jc *JiraClient, tasktype, summary string) error {
-	tt, err := jc.GetTaskType(tasktype)
-	if err != nil {
-		return err
-	}
-	iss, err := json.Marshal(map[string]interface{}{
-		"fields": map[string]interface{}{
-			"summary":   summary,
-			"project":   map[string]interface{}{"key": strings.Split(i.Key, "-")[0]},
-			"issuetype": map[string]interface{}{"name": tt},
-			"parent":    map[string]interface{}{"key": i.Key}}})
-	if err != nil {
-		return err
-	}
-	if options.Verbose {
-		fmt.Println(string(iss))
-	}
-	resp, err := jc.Post(fmt.Sprintf("https://%s/rest/api/2/issue", jc.Server), "application/json", bytes.NewBuffer(iss))
-	if err != nil {
-		return err
-	}
-	if resp.StatusCode != 201 {
-		s, _ := ioutil.ReadAll(resp.Body)
-		return &IssueError{fmt.Sprintf("%d: %s", resp.StatusCode, string(s))}
-	}
-	return nil
-}
