@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"strings"
@@ -325,6 +326,36 @@ func (jc *JiraClient) GetTaskTypes() (map[string]map[string]string, error) {
 	return map[string]map[string]string{}, nil
 }
 
+func (jc *JiraClient) GetProjects() (map[string]JiraProject, error) {
+	projmap := map[string]JiraProject{}
+	resp, err := jc.Get(fmt.Sprintf("https://%s/rest/api/2/issue/createmeta", jc.Server))
+	if err != nil {
+		return nil, err
+	}
+	obj, err := JsonToInterface(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	projs, err := jsonWalker("projects", obj)
+	if err != nil {
+		return nil, err
+	}
+	if probjs, ok := projs.([]interface{}); ok {
+		for _, v := range probjs {
+			projnamejs, _ := jsonWalker("name", v)
+			projkeyjs, _ := jsonWalker("key", v)
+			projidjs, _ := jsonWalker("id", v)
+			projname, _ := projnamejs.(string)
+			projkey, _ := projkeyjs.(string)
+			projid, _ := projidjs.(string)
+			projmap[projname] = JiraProject{Id: projid, Name: projname, Key: projkey}
+		}
+	}
+
+	return projmap, nil
+
+}
+
 func (jc *JiraClient) GetTaskType(friendlyname string) (string, error) {
 	projmap, err := jc.GetTaskTypes()
 	if err != nil {
@@ -337,7 +368,43 @@ func (jc *JiraClient) GetTaskType(friendlyname string) (string, error) {
 	}
 }
 
-type JiraProjects struct {
+func (jc *JiraClient) CreateTask(project string, nto *newTaskOptions) error {
+	tt, err := jc.GetTaskType(nto.TaskType)
+	if err != nil {
+		return err
+	}
+	projmap, err := jc.GetProjects()
+	if err != nil {
+		return err
+	}
+	fields := map[string]interface{}{
+		"summary":   nto.Summary,
+		"project":   map[string]interface{}{"key": projmap[project].Key},
+		"issuetype": map[string]interface{}{"name": tt}}
+	if nto.Parent != nil {
+		fields["parent"] = map[string]interface{}{"key": nto.Parent.Key}
+	}
+	iss, err := json.Marshal(map[string]interface{}{
+		"fields": fields})
+	if err != nil {
+		return err
+	}
+	if options.Verbose {
+		fmt.Println(string(iss))
+	}
+	resp, err := jc.Post(fmt.Sprintf("https://%s/rest/api/2/issue", jc.Server), "application/json", bytes.NewBuffer(iss))
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode != 201 {
+		s, _ := ioutil.ReadAll(resp.Body)
+		return &IssueError{fmt.Sprintf("%d: %s", resp.StatusCode, string(s))}
+	}
+	return nil
+}
+
+type JiraProject struct {
 	Name string
+	Key  string
 	Id   string
 }

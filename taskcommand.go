@@ -1,9 +1,5 @@
 package main
 
-import (
-	"strings"
-)
-
 type TaskCommand struct{}
 
 var taskCommand TaskCommand
@@ -44,16 +40,6 @@ func (tc *TaskCommand) Execute(args []string) error {
 			if err != nil {
 				return err
 			}
-		} else {
-			return &CommandError{"Not enough arguments"}
-		}
-	case "new-subtask":
-		if len(args) > 3 {
-			err := iss.CreateSubTask(jc, args[2], strings.Join(args[3:], " "))
-			if err != nil {
-				return err
-			}
-
 		} else {
 			return &CommandError{"Not enough arguments"}
 		}
