@@ -17,6 +17,17 @@ type Issue struct {
 	Description string
 	Status      string
 	Assignee    string
+	Files       IssueFileList
+}
+
+type IssueFileList []string
+
+func (ifl IssueFileList) String() string {
+	var s string
+	for _, v := range ifl {
+		s += fmt.Sprintln(fmt.Sprintf("\t%s", v))
+	}
+	return s
 }
 
 func (i *Issue) String() string {
@@ -33,6 +44,9 @@ func (i *Issue) PrettySprint() string {
 	sa = append(sa, fmt.Sprintln(fmt.Sprintf("Status: %s", i.Status)))
 	sa = append(sa, fmt.Sprintln(fmt.Sprintf("Assignee: %s", i.Assignee)))
 	sa = append(sa, fmt.Sprintln(fmt.Sprintf("Description: %s", i.Description)))
+	if len(i.Files) > 0 {
+		sa = append(sa, fmt.Sprintln(fmt.Sprintf("Files: \n%v", i.Files)))
+	}
 	return strings.Join(sa, "\n")
 }
 
@@ -77,8 +91,35 @@ func (i *Issue) StopProgress(jc *JiraClient) error {
 	return nil
 }
 
-func (i *Issue) doTransition(id string, jc *JiraClient) error {
-	putJs, err := json.Marshal(map[string]interface{}{"transition": map[string]interface{}{"id": id}})
+func capitalize(str string) string {
+	s2 := ""
+	cap := false
+	for _, k := range str {
+		if !cap {
+			s2 += strings.ToUpper(string(k))
+			cap = true
+		} else {
+			s2 += strings.ToLower(string(k))
+		}
+
+	}
+	return s2
+}
+
+func (i *Issue) ResolveIssue(jc *JiraClient, resolution string) error {
+	id, err := i.getTransitionId("resolve", jc)
+	if err != nil {
+		return err
+	}
+	err = i.doTransitionWithFields(id, map[string]interface{}{"resolution": map[string]interface{}{"name": capitalize(resolution)}}, jc)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (i *Issue) doTransitionWithFields(id string, fields interface{}, jc *JiraClient) error {
+	putJs, err := json.Marshal(map[string]interface{}{"transition": map[string]interface{}{"id": id}, "fields": fields})
 	if err != nil {
 		return err
 	}
@@ -88,6 +129,11 @@ func (i *Issue) doTransition(id string, jc *JiraClient) error {
 		return &IssueError{fmt.Sprintf("%d: %s", resp.StatusCode, string(s))}
 	}
 	return nil
+
+}
+
+func (i *Issue) doTransition(id string, jc *JiraClient) error {
+	return i.doTransitionWithFields(id, nil, jc)
 }
 
 func (i *Issue) getTransitionId(transition string, jc *JiraClient) (string, error) {
@@ -117,4 +163,32 @@ func (i *Issue) getTransitionId(transition string, jc *JiraClient) (string, erro
 	}
 	return "", &IssueError{"Transition ID not found"}
 
+}
+
+func (i *Issue) CreateSubTask(jc *JiraClient, tasktype, summary string) error {
+	tt, err := jc.GetTaskType(tasktype)
+	if err != nil {
+		return err
+	}
+	iss, err := json.Marshal(map[string]interface{}{
+		"fields": map[string]interface{}{
+			"summary":   summary,
+			"project":   map[string]interface{}{"key": strings.Split(i.Key, "-")[0]},
+			"issuetype": map[string]interface{}{"name": tt},
+			"parent":    map[string]interface{}{"key": i.Key}}})
+	if err != nil {
+		return err
+	}
+	if options.Verbose {
+		fmt.Println(string(iss))
+	}
+	resp, err := jc.Post(fmt.Sprintf("https://%s/rest/api/2/issue", jc.Server), "application/json", bytes.NewBuffer(iss))
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode != 201 {
+		s, _ := ioutil.ReadAll(resp.Body)
+		return &IssueError{fmt.Sprintf("%d: %s", resp.StatusCode, string(s))}
+	}
+	return nil
 }

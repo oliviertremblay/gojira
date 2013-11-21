@@ -102,9 +102,6 @@ func NewIssueFromIface(obj interface{}) (*Issue, error) {
 	issuetype, err := jsonWalker("fields/issuetype/name", obj)
 	summary, err := jsonWalker("fields/summary", obj)
 	parentJS, err := jsonWalker("fields/parent/key", obj)
-	descriptionjs, err := jsonWalker("fields/description", obj)
-	statusjs, err := jsonWalker("fields/status/name", obj)
-	assigneejs, err := jsonWalker("fields/assignee/name", obj)
 	var parent string
 	parent, _ = parentJS.(string)
 	if err != nil {
@@ -113,6 +110,10 @@ func NewIssueFromIface(obj interface{}) (*Issue, error) {
 	if parent != "" {
 		parent = fmt.Sprintf(" of %s", parent)
 	}
+
+	descriptionjs, err := jsonWalker("fields/description", obj)
+	statusjs, err := jsonWalker("fields/status/name", obj)
+	assigneejs, err := jsonWalker("fields/assignee/name", obj)
 	ok, ok2, ok3 := true, true, true
 	issue.Key, ok = key.(string)
 	issue.Parent = parent
@@ -121,11 +122,38 @@ func NewIssueFromIface(obj interface{}) (*Issue, error) {
 	issue.Description, _ = descriptionjs.(string)
 	issue.Status, _ = statusjs.(string)
 	issue.Assignee, _ = assigneejs.(string)
+	issue.Files = getFileListFromIface(obj)
 	if !(ok && ok2 && ok3) {
 		return nil, newIssueError("Bad Issue")
 	}
 
 	return issue, nil
+}
+
+func getFileListFromIface(obj interface{}) IssueFileList {
+	rez := make(IssueFileList, 0)
+	attachmentsjs, err := jsonWalker("fields/attachment", obj)
+	if err != nil {
+		return rez
+	}
+	attachments, ok := attachmentsjs.([]interface{})
+	if !ok {
+		return rez
+	}
+
+	for _, v := range attachments {
+		filename, err := jsonWalker("filename", v)
+		file, err := jsonWalker("content", v)
+		if err != nil {
+			continue
+		}
+		filenamestr, ok := filename.(string)
+		filestring, ok2 := file.(string)
+		if ok && ok2 {
+			rez = append(rez, fmt.Sprintf("%s : %s", filenamestr, filestring))
+		}
+	}
+	return rez
 }
 
 type IssueError struct {
@@ -256,4 +284,60 @@ func jsonWalker(path string, json interface{}) (interface{}, error) {
 		}
 	}
 	return nil, errors.New("Woooops")
+}
+
+func (jc *JiraClient) GetTaskTypes() (map[string]map[string]string, error) {
+	resp, err := jc.Get(fmt.Sprintf("https://%s/rest/api/2/issue/createmeta", jc.Server))
+	if err != nil {
+		return nil, err
+	}
+	obj, err := JsonToInterface(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	projs, err := jsonWalker("projects", obj)
+	if err != nil {
+		return nil, err
+	}
+	if probjs, ok := projs.([]interface{}); ok {
+		projmap := map[string]map[string]string{}
+		for _, v := range probjs {
+			projnamejs, _ := jsonWalker("name", v)
+			if projname, ok := projnamejs.(string); ok {
+				projmap[projname] = map[string]string{}
+				issuesjs, _ := jsonWalker("issuetypes", v)
+				if issues, ok := issuesjs.([]interface{}); ok {
+					for _, issuetype := range issues {
+						typenamejs, err := jsonWalker("name", issuetype)
+						if err != nil {
+							continue
+						}
+						if typename, ok := typenamejs.(string); ok {
+							projmap[projname][strings.Replace(strings.ToLower(typename), " ", "-", -1)] = typename
+						}
+					}
+				}
+			}
+		}
+		return projmap, nil
+	}
+
+	return map[string]map[string]string{}, nil
+}
+
+func (jc *JiraClient) GetTaskType(friendlyname string) (string, error) {
+	projmap, err := jc.GetTaskTypes()
+	if err != nil {
+		return "", err
+	}
+	if taskname, ok := projmap[options.Project][friendlyname]; ok {
+		return taskname, nil
+	} else {
+		return "", &JiraClientError{fmt.Sprintf("Task name not found for friendly name %s.", friendlyname)}
+	}
+}
+
+type JiraProjects struct {
+	Name string
+	Id   string
 }
