@@ -396,10 +396,19 @@ func (jc *JiraClient) CreateTask(project string, nto *newTaskOptions) error {
 	if err != nil {
 		return err
 	}
+	s, _ := ioutil.ReadAll(resp.Body)
 	if resp.StatusCode != 201 {
-		s, _ := ioutil.ReadAll(resp.Body)
+
 		return &IssueError{fmt.Sprintf("%d: %s", resp.StatusCode, string(s))}
 	}
+	var js interface{}
+	err = json.Unmarshal(s, &js)
+	if err != nil {
+		return err
+	}
+	keyjs, _ := jsonWalker("key", js)
+	key, _ := keyjs.(string)
+	log.Println(fmt.Sprintf("%s successfully created!", key))
 	return nil
 }
 

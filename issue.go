@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"regexp"
 	"strings"
 )
 
@@ -41,12 +42,26 @@ func (i *Issue) String() string {
 func (i *Issue) PrettySprint() string {
 	sa := make([]string, 0)
 	sa = append(sa, fmt.Sprintln(i.String()))
+	sa = append(sa, fmt.Sprintln(fmt.Sprintf("Jira URL: https://%s/browse/%s", options.Server, i.Key)))
 	sa = append(sa, fmt.Sprintln(fmt.Sprintf("Status: %s", i.Status)))
 	sa = append(sa, fmt.Sprintln(fmt.Sprintf("Assignee: %s", i.Assignee)))
-	sa = append(sa, fmt.Sprintln(fmt.Sprintf("Description: %s", i.Description)))
+
+	r, _ := regexp.Compile("[*]([^*]*)[*]")
+	splitdesc := strings.Split(i.Description, "\n")
+	for k, v := range splitdesc {
+		splitdesc[k] = r.ReplaceAllString(v, "\x1b[1m$1\x1b[22m")
+	}
+	desc := strings.Join(splitdesc, "\n")
+	desc = strings.Replace(desc, "{color:red}", "\x1b[31m", -1)
+	desc = strings.Replace(desc, "{color}", "\x1b[39m", -1)
+
+	r2, _ := regexp.Compile("(?s)[{]quote[}](.*)[{]quote[}]")
+	desc = r2.ReplaceAllString(desc, "\x1b[51$1\x1b[54")
+	sa = append(sa, fmt.Sprintln(fmt.Sprintf("Description: %s", desc)))
 	if len(i.Files) > 0 {
 		sa = append(sa, fmt.Sprintln(fmt.Sprintf("Files: \n%v", i.Files)))
 	}
+
 	return strings.Join(sa, "\n")
 }
 
@@ -92,18 +107,63 @@ func (i *Issue) StopProgress(jc *JiraClient) error {
 }
 
 func capitalize(str string) string {
-	s2 := ""
-	cap := false
-	for _, k := range str {
-		if !cap {
-			s2 += strings.ToUpper(string(k))
-			cap = true
-		} else {
-			s2 += strings.ToLower(string(k))
-		}
 
+	splitstr := strings.Split(str, " ")
+	for i, substr := range splitstr {
+		cap := false
+		s2 := ""
+		for _, k := range substr {
+			if !cap {
+				s2 += strings.ToUpper(string(k))
+				cap = true
+			} else {
+				s2 += strings.ToLower(string(k))
+			}
+
+		}
+		splitstr[i] = s2
 	}
-	return s2
+	return strings.Join(splitstr, " ")
+}
+
+type Resolutions []string
+
+func (r Resolutions) String() string {
+	res := ""
+	for _, v := range r {
+		res += fmt.Sprintln(v)
+	}
+	return res
+}
+
+func (i *Issue) PossibleResolutions(jc *JiraClient) (Resolutions, error) {
+	resp, err := jc.Get(fmt.Sprintf("https://%s/rest/api/2/issue/%s/transitions?expand=transitions.fields", jc.Server, i.Key))
+	if err != nil {
+		return nil, err
+	}
+	obj, err := JsonToInterface(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	txs, err := jsonWalker("transitions", obj)
+	if err != nil {
+		return nil, err
+	}
+	result := Resolutions{}
+	for _, tx := range txs.([]interface{}) {
+		name, _ := jsonWalker("name", tx)
+		if strings.Contains(name.(string), "Resolve") {
+			txRes, err := jsonWalker("fields/resolution/allowedValues", tx)
+			if err == nil {
+				for _, singleRes := range txRes.([]interface{}) {
+					n, _ := jsonWalker("name", singleRes)
+					result = append(result, strings.ToLower(n.(string)))
+				}
+			}
+		}
+	}
+	return result, nil
 }
 
 func (i *Issue) ResolveIssue(jc *JiraClient, resolution string) error {
@@ -113,7 +173,8 @@ func (i *Issue) ResolveIssue(jc *JiraClient, resolution string) error {
 	}
 	err = i.doTransitionWithFields(id, map[string]interface{}{"resolution": map[string]interface{}{"name": capitalize(resolution)}}, jc)
 	if err != nil {
-		return err
+		res, _ := i.PossibleResolutions(jc)
+		return &CommandError{fmt.Sprintf("Command failed. Possible resolution values include: \n%sOriginal Error: %s", res, err.Error())}
 	}
 	return nil
 }

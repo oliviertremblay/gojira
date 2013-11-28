@@ -36,9 +36,7 @@ func (cc *CreateCommand) Execute(args []string) error {
 		return err
 	}
 
-	if len(args) > 3 {
-
-	} else {
+	if !(len(args) > 1) {
 		return &CommandError{"Not enough arguments"}
 	}
 	return nil

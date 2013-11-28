@@ -1,5 +1,10 @@
 package main
 
+import (
+	"fmt"
+	"strings"
+)
+
 type TaskCommand struct{}
 
 var taskCommand TaskCommand
@@ -36,12 +41,14 @@ func (tc *TaskCommand) Execute(args []string) error {
 		}
 	case "resolve":
 		if len(args) > 2 {
-			err := iss.ResolveIssue(jc, args[2])
+			err := iss.ResolveIssue(jc, strings.Join(args[2:], " "))
 			if err != nil {
 				return err
 			}
 		} else {
-			return &CommandError{"Not enough arguments"}
+			fmt.Println("Possible values for resolution:")
+			p, _ := iss.PossibleResolutions(jc)
+			fmt.Print(p)
 		}
 	}
 
