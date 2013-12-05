@@ -24,6 +24,7 @@ type LogCommand struct {
 	Author    string `short:"a" long:"author" description:"Show log for given author"`
 	Yesterday bool   `short:"y" long:"yesterday" description:"Log time yesterday. Has precedence over -d."`
 	Day       string `short:"d" long:"day" description:"Day, in the format 'yyyy-mm-dd'"`
+	Comment   string `short:"c" long:"comment" description:"Comment for the worklog"`
 	jc        *JiraClient
 }
 
@@ -190,7 +191,8 @@ func (lc *LogCommand) Execute(args []string) error {
 		if lc.Yesterday {
 			started = time.Unix(n.Unix()-SECONDS_IN_A_DAY, 0)
 		}
-		postdata, _ := json.Marshal(map[string]string{"timeSpent": timeSpent, "started": started.Format(JIRA_TIME_FORMAT)})
+		data := map[string]string{"timeSpent": timeSpent, "started": started.Format(JIRA_TIME_FORMAT), "comment": lc.Comment}
+		postdata, _ := json.Marshal(data)
 
 		url := fmt.Sprintf("https://%s/rest/api/2/issue/%s/worklog", options.Server, key)
 		resp, err := jc.Post(url, "application/json", bytes.NewBuffer(postdata))
