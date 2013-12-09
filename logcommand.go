@@ -8,6 +8,7 @@ import (
 	"log"
 	"sort"
 	"strings"
+	"text/template"
 	"time"
 )
 
@@ -34,15 +35,34 @@ type TimeLog struct {
 	Key     string
 	Date    time.Time
 	Seconds int
+	Issue   *Issue
 }
 
 func (tl TimeLog) String() string {
-	return fmt.Sprintf("%s : %s", tl.Key, prettySeconds(tl.Seconds))
+	return fmt.Sprintf("%s : %s", tl.Key, tl.PrettySeconds())
+}
+
+func (tl TimeLog) PrettySeconds() string {
+	return prettySeconds(tl.Seconds)
+}
+
+func (tl TimeLog) Sprintf(format string) (string, error) {
+	tltpl, err := template.New("tl").Parse(format)
+	if err != nil {
+		return "", err
+	}
+	var txt []byte
+	txtbuff := bytes.NewBuffer(txt)
+	tltpl.Execute(txtbuff, tl)
+	return txtbuff.String(), nil
 }
 
 func prettySeconds(seconds int) string {
-	t, _ := time.ParseDuration(fmt.Sprintf("%ds", seconds))
-	return fmt.Sprint(t)
+	//This works because it's an integer division.
+	hours := seconds / 3600
+	minutes := (seconds - (hours * 3600)) / 60
+	seconds = (seconds - (hours * 3600) - (minutes * 60))
+	return fmt.Sprintf("%2dh %2dm %2ds", hours, minutes, seconds)
 
 }
 
@@ -126,7 +146,7 @@ func (lc *LogCommand) GetTimeLog(targetAuthor string, period Period, issue *Issu
 								if _, ok := logs_for_times[date]; !ok {
 									logs_for_times[date] = make([]TimeLog, 0)
 								}
-								logs_for_times[date] = append(logs_for_times[date], TimeLog{issue.Key, date, seconds})
+								logs_for_times[date] = append(logs_for_times[date], TimeLog{issue.Key, date, seconds, issue})
 							}
 						}
 					}
@@ -148,9 +168,11 @@ func (lc *LogCommand) GetTimeLog(targetAuthor string, period Period, issue *Issu
 	for _, l := range logs_for_times.GetSortedKeys() {
 		fmt.Println(l)
 		for _, singlelog := range logs_for_times[l] {
-			fmt.Println(singlelog)
+			//TODO: Either abstract the template or don't, but expose it to be a parameter.
+			str, _ := singlelog.Sprintf("{{.PrettySeconds}}\t{{.Key}}\t({{.Issue.Type}}): {{.Issue.Summary}}")
+			fmt.Println(str)
 		}
-		fmt.Println(fmt.Sprintf("Total for day: %s", prettySeconds(logs_for_times.SumForKey(l))))
+		fmt.Println(fmt.Sprintf("Total for day: %s\n", prettySeconds(logs_for_times.SumForKey(l))))
 	}
 	fmt.Println(fmt.Sprintf("Total for period: %s", prettySeconds(logs_for_times.SumForMap())))
 	return nil
