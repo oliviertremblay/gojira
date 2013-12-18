@@ -128,6 +128,14 @@ func NewIssueFromIface(obj interface{}) (*Issue, error) {
 		return nil, newIssueError("Bad Issue")
 	}
 
+	OriginalEstimateJs, _ := jsonWalker("fields/timeoriginalestimate", obj)
+	RemainingEstimateJs, _ := jsonWalker("fields/timeremainingestimate", obj)
+	TimeSpentJs, _ := jsonWalker("fields/timespent", obj)
+
+	issue.OriginalEstimate, _ = OriginalEstimateJs.(float64)
+	issue.RemainingEstimate, _ = RemainingEstimateJs.(float64)
+	issue.TimeSpent, _ = TimeSpentJs.(float64)
+
 	return issue, nil
 }
 
@@ -189,7 +197,7 @@ func (jc *JiraClient) UpdateIssue(issuekey string, postjs map[string]interface{}
 	if err != nil {
 		return err
 	}
-	resp, err := jc.Put(fmt.Sprintf("https://%s/rest/api/2/issue/%s", jc.Server, issuekey), "application/json", bytes.NewBuffer(postdata))
+	resp, err := jc.Put(fmt.Sprintf("https://%s/rest/api/latest/issue/%s", jc.Server, issuekey), "application/json", bytes.NewBuffer(postdata))
 
 	if err != nil {
 		return err

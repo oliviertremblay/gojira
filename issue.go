@@ -11,14 +11,17 @@ import (
 
 //Representation of a single issue
 type Issue struct {
-	Key         string
-	Type        string
-	Summary     string
-	Parent      string
-	Description string
-	Status      string
-	Assignee    string
-	Files       IssueFileList
+	Key               string
+	Type              string
+	Summary           string
+	Parent            string
+	Description       string
+	Status            string
+	Assignee          string
+	Files             IssueFileList
+	OriginalEstimate  float64
+	RemainingEstimate float64
+	TimeSpent         float64
 }
 
 type IssueFileList []string
