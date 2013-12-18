@@ -21,12 +21,13 @@ func init() {
 }
 
 type LogCommand struct {
-	MyLog     bool   `short:"m" long:"mine" description:"Show my log for current sprint" default:"true" group:"Application Options"`
-	Author    string `short:"a" long:"author" description:"Show log for given author"`
-	Yesterday bool   `short:"y" long:"yesterday" description:"Log time yesterday. Has precedence over -d."`
-	Day       string `short:"d" long:"day" description:"Day, in the format 'yyyy-mm-dd'"`
-	Comment   string `short:"c" long:"comment" description:"Comment for the worklog"`
-	jc        *JiraClient
+	MyLog         bool   `short:"m" long:"mine" description:"Show my log for current sprint" default:"true" group:"Application Options"`
+	Author        string `short:"a" long:"author" description:"Show log for given author"`
+	Yesterday     bool   `short:"y" long:"yesterday" description:"Log time yesterday. Has precedence over -d."`
+	Day           string `short:"d" long:"day" description:"Day, in the format 'yyyy-mm-dd'"`
+	Comment       string `short:"c" long:"comment" description:"Comment for the worklog"`
+	WorklogFormat string `short:"f" long:"worklog-format" description:"Format string of worklog" default:"{{.PrettySeconds}}\t{{.Key}}\t({{.Issue.Type}}): ({{Percentage .Issue.TimeSpent .Issue.OriginalEstimate}} PTS) {{.Issue.Summary}}"`
+	jc            *JiraClient
 }
 
 var logCommand LogCommand
@@ -43,7 +44,7 @@ func (tl TimeLog) String() string {
 }
 
 func (tl TimeLog) PrettySeconds() string {
-	return prettySeconds(tl.Seconds)
+	return PrettySeconds(tl.Seconds)
 }
 
 func (tl TimeLog) Sprintf(format string) (string, error) {
@@ -57,13 +58,20 @@ func (tl TimeLog) Sprintf(format string) (string, error) {
 	return txtbuff.String(), nil
 }
 
-func prettySeconds(seconds int) string {
+func PrettySeconds(seconds int) string {
 	//This works because it's an integer division.
 	hours := seconds / 3600
 	minutes := (seconds - (hours * 3600)) / 60
 	seconds = (seconds - (hours * 3600) - (minutes * 60))
 	return fmt.Sprintf("%2dh %2dm %2ds", hours, minutes, seconds)
 
+}
+
+func (tl TimeLog) Percentage() string {
+	if tl.Issue.OriginalEstimate == 0 {
+		return "N/A"
+	}
+	return fmt.Sprintf("%2.2f%%", (tl.Issue.TimeSpent/tl.Issue.OriginalEstimate)*100)
 }
 
 type Period struct {
@@ -164,17 +172,24 @@ func (lc *LogCommand) GetTimeLog(targetAuthor string, period Period, issue *Issu
 		fmt.Print(".")
 	}
 	fmt.Print("\n")
-
+	logformat := lc.WorklogFormat
+	if logformat == "" {
+		logformat = "{{.PrettySeconds}}\t{{.Key}}\t({{.Issue.Type}}): ({{.Percentage}} PTS) {{.Issue.Summary}}"
+	}
 	for _, l := range logs_for_times.GetSortedKeys() {
 		fmt.Println(l)
 		for _, singlelog := range logs_for_times[l] {
 			//TODO: Either abstract the template or don't, but expose it to be a parameter.
-			str, _ := singlelog.Sprintf("{{.PrettySeconds}}\t{{.Key}}\t({{.Issue.Type}}): {{.Issue.Summary}}")
+
+			str, err := singlelog.Sprintf(logformat)
+			if err != nil {
+				fmt.Println(err)
+			}
 			fmt.Println(str)
 		}
-		fmt.Println(fmt.Sprintf("Total for day: %s\n", prettySeconds(logs_for_times.SumForKey(l))))
+		fmt.Println(fmt.Sprintf("Total for day: %s\n", PrettySeconds(logs_for_times.SumForKey(l))))
 	}
-	fmt.Println(fmt.Sprintf("Total for period: %s", prettySeconds(logs_for_times.SumForMap())))
+	fmt.Println(fmt.Sprintf("Total for period: %s", PrettySeconds(logs_for_times.SumForMap())))
 	return nil
 }
 
