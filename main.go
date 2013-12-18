@@ -19,13 +19,14 @@ type Options struct {
 var debug bool
 var options Options
 var parser *flags.Parser = flags.NewParser(&options, flags.Default)
+var iniParser = flags.NewIniParser(parser)
 
 func main() {
-	err := parser.ParseIniFile(os.ExpandEnv("$HOME/.gojirarc"))
+	err := iniParser.ParseFile(os.ExpandEnv("$HOME/.gojirarc"))
 	if err != nil && debug {
 		log.Println(err)
 	}
-	err = parser.ParseIniFile(".gojirarc")
+	err = iniParser.ParseFile(".gojirarc")
 	if err != nil && debug {
 		log.Println(err)
 	}
