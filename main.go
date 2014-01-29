@@ -12,10 +12,13 @@ type Options struct {
 	Passwd     string `short:"p" long:"pass" description:"Your password" default-mask:"*******"`
 	NoCheckSSL bool   `short:"n" long:"no-check-ssl" description:"Don't check ssl validity"`
 	UseStdIn   bool   `long:"stdin"`
-    Verbose    bool   `short:"v" long:"verbose" description:"Be verbose"`
-	Project    string `short:"j" long:"project"`
-	Server     string `short:"s" long:"server" description:"Jira server (just the domain name)"`
+
+	Verbose bool   `short:"v" long:"verbose" description:"Be verbose"`
+	Project string `short:"j" long:"project"`
+
+	Server string `short:"s" long:"server" description:"Jira server (just the domain name)"`
 }
+
 var debug bool
 var options Options
 var parser *flags.Parser = flags.NewParser(&options, flags.Default)
@@ -33,7 +36,7 @@ func main() {
 	_, err = parser.Parse()
 
 	if err != nil {
-		if e ,ok := err.(*flags.Error); ok && e.Type == flags.ErrHelp{
+		if e, ok := err.(*flags.Error); ok && e.Type == flags.ErrHelp {
 			os.Exit(0)
 		}
 		log.Println(err)

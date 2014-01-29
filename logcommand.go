@@ -21,12 +21,12 @@ func init() {
 }
 
 type LogCommand struct {
-	MyLog         bool   `short:"m" long:"mine" description:"Show my log for current sprint" default:"true" group:"Application Options"`
+	MyLog         bool   `short:"m" long:"mine" description:"Show my log for current sprint" default:"false" group:"Application Options"`
 	Author        string `short:"a" long:"author" description:"Show log for given author"`
 	Yesterday     bool   `short:"y" long:"yesterday" description:"Log time yesterday. Has precedence over -d."`
 	Day           string `short:"d" long:"day" description:"Day, in the format 'yyyy-mm-dd'"`
 	Comment       string `short:"c" long:"comment" description:"Comment for the worklog"`
-	WorklogFormat string `short:"f" long:"worklog-format" description:"Format string of worklog" default:"{{.PrettySeconds}}\t{{.Key}}\t({{.Issue.Type}}): ({{Percentage .Issue.TimeSpent .Issue.OriginalEstimate}} PTS) {{.Issue.Summary}}"`
+	WorklogFormat string `short:"f" long:"worklog-format" description:"Format string of worklog" default:""`
 	jc            *JiraClient
 }
 
@@ -202,6 +202,7 @@ func (lc *LogCommand) Execute(args []string) error {
 		n = d
 	}
 	if lc.MyLog || len(args) < 2 {
+		log.Println(args)
 		author := ""
 		if lc.MyLog {
 			author = options.User
