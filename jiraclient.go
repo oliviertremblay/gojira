@@ -74,7 +74,8 @@ func (jc *JiraClient) Upload(issueKey string, file string) (err error) {
 	if err != nil {
 		return
 	}
-	fw, err := w.CreateFormFile("file", file)
+	fi, err := os.Lstat(file)
+	fw, err := w.CreateFormFile("file", fi.Name())
 	if err != nil {
 		return
 	}
