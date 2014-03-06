@@ -24,12 +24,22 @@ type Issue struct {
 	TimeSpent         float64
 }
 
-type IssueFileList []string
+type IssueFileList []*IssueFile
+
+type IssueFile struct {
+	name string
+	url  string
+	self string
+}
+
+func (issf *IssueFile) String() string {
+	return fmt.Sprintf("%s : %s", issf.name, issf.url)
+}
 
 func (ifl IssueFileList) String() string {
 	var s string
 	for _, v := range ifl {
-		s += fmt.Sprintln(fmt.Sprintf("\t%s", v))
+		s += fmt.Sprintln(fmt.Sprintf("\t%v", v))
 	}
 	return s
 }

@@ -10,7 +10,9 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"mime/multipart"
 	"net/http"
+	"os"
 	"strings"
 )
 
@@ -29,6 +31,71 @@ func NewJiraClient(options Options) *JiraClient {
 	client := &http.Client{Transport: tr}
 	return &JiraClient{client, options.User, options.Passwd, options.Server}
 
+}
+
+func (jc *JiraClient) DelAttachment(issueKey string, att_name string) (err error) {
+	iss, err := jc.GetIssue(issueKey)
+	if err != nil {
+		return err
+	}
+
+	for _, att := range iss.Files {
+		if att.name == att_name {
+			res, err := jc.Delete(att.self, "", nil)
+			if res.StatusCode == 404 {
+				return &CommandError{"Not found"}
+			}
+			if res.StatusCode == 403 {
+				return &CommandError{"Unauthorized"}
+			}
+			if options.Verbose {
+				fmt.Println(res.StatusCode)
+				sb, _ := ioutil.ReadAll(res.Body)
+				fmt.Println(string(sb))
+			}
+
+			if err != nil {
+				return err
+			}
+			log.Println("File removed from issue!")
+			return nil
+		}
+	}
+	return &CommandError{"File not found"}
+
+}
+
+func (jc *JiraClient) Upload(issueKey string, file string) (err error) {
+	// Prepare a form that you will submit to that URL.
+	var b bytes.Buffer
+	w := multipart.NewWriter(&b)
+	// Add your image file
+	f, err := os.Open(file)
+	if err != nil {
+		return
+	}
+	fw, err := w.CreateFormFile("file", file)
+	if err != nil {
+		return
+	}
+	if _, err = io.Copy(fw, f); err != nil {
+		return
+	}
+	// Don't forget to close the multipart writer.
+	// If you don't close it, your request will be missing the terminating boundary.
+	w.Close()
+
+	// Now that you have a form, you can submit it to your handler.
+
+	res, err := jc.Post(fmt.Sprintf("https://%s/rest/api/2/issue/%s/attachments", jc.Server, issueKey), w.FormDataContentType(), &b)
+
+	if err != nil {
+		s, _ := ioutil.ReadAll(res.Body)
+		fmt.Println(string(s))
+		return err
+	}
+	fmt.Println("File uploaded!")
+	return nil
 }
 
 //Represents search options to Jira
@@ -153,13 +220,15 @@ func getFileListFromIface(obj interface{}) IssueFileList {
 	for _, v := range attachments {
 		filename, err := jsonWalker("filename", v)
 		file, err := jsonWalker("content", v)
+		self_js, err := jsonWalker("self", v)
 		if err != nil {
 			continue
 		}
 		filenamestr, ok := filename.(string)
 		filestring, ok2 := file.(string)
-		if ok && ok2 {
-			rez = append(rez, fmt.Sprintf("%s : %s", filenamestr, filestring))
+		self, ok3 := self_js.(string)
+		if ok && ok2 && ok3 {
+			rez = append(rez, &IssueFile{name: filenamestr, url: filestring, self: self})
 		}
 	}
 	return rez
@@ -220,6 +289,7 @@ func (jc *JiraClient) Get(url string) (*http.Response, error) {
 
 func (jc *JiraClient) Post(url, mimetype string, rdr io.Reader) (*http.Response, error) {
 	req, err := jc.newRequest("POST", url, mimetype, rdr)
+	req.Header.Add("X-Atlassian-Token", "nocheck")
 	if err != nil {
 		return nil, err
 	}
@@ -228,6 +298,14 @@ func (jc *JiraClient) Post(url, mimetype string, rdr io.Reader) (*http.Response,
 
 func (jc *JiraClient) Put(url, mimetype string, rdr io.Reader) (*http.Response, error) {
 	req, err := jc.newRequest("PUT", url, mimetype, rdr)
+	if err != nil {
+		return nil, err
+	}
+	return jc.client.Do(req)
+}
+
+func (jc *JiraClient) Delete(url, mimetype string, rdr io.Reader) (*http.Response, error) {
+	req, err := jc.newRequest("DELETE", url, mimetype, nil)
 	if err != nil {
 		return nil, err
 	}
