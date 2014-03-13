@@ -20,7 +20,7 @@ func (ec *CommentCommand) Execute(args []string) error {
 		return &CommandError{"Not enough arguments"}
 	}
 
-	err := jc.AddComment(args[0], strings.Join(args[1:], ""))
+	err := jc.AddComment(args[0], strings.Join(args[1:], " "))
 	if err != nil {
 		return err
 	}
