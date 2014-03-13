@@ -22,6 +22,27 @@ type Issue struct {
 	OriginalEstimate  float64
 	RemainingEstimate float64
 	TimeSpent         float64
+	Comments          CommentList
+}
+
+type CommentList []*Comment
+
+type Comment struct {
+	Id         string
+	Body       string
+	AuthorName string
+}
+
+func (cm *Comment) String() string {
+	return fmt.Sprintf("\t#%s by %s: \n\n%s\n", cm.Id, cm.AuthorName, cm.Body)
+}
+
+func (cl CommentList) String() string {
+	var s string
+	for _, v := range cl {
+		s += fmt.Sprintln(fmt.Sprintf("\t%v", v))
+	}
+	return s
 }
 
 type IssueFileList []*IssueFile
@@ -73,6 +94,10 @@ func (i *Issue) PrettySprint() string {
 	sa = append(sa, fmt.Sprintln(fmt.Sprintf("Description: %s", desc)))
 	if len(i.Files) > 0 {
 		sa = append(sa, fmt.Sprintln(fmt.Sprintf("Files: \n%v", i.Files)))
+	}
+
+	if len(i.Comments) > 0 {
+		sa = append(sa, fmt.Sprintln(fmt.Sprintf("Comments: \n%v", i.Comments)))
 	}
 
 	return strings.Join(sa, "\n")

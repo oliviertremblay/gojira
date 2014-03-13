@@ -33,6 +33,49 @@ func NewJiraClient(options Options) *JiraClient {
 
 }
 
+func (jc *JiraClient) AddComment(issueKey string, comment string) (err error) {
+	b, err := json.Marshal(map[string]interface{}{"body": comment})
+	if err != nil {
+		return err
+	}
+	url := fmt.Sprintf("%s/%s/comment", jc.issueUrl(), issueKey)
+	if options.Verbose {
+		fmt.Println(url)
+	}
+	r, err := jc.Post(url, "application/json", bytes.NewBuffer(b))
+
+	if err != nil {
+		return jc.printRespErr(r, err)
+	}
+	if r.StatusCode >= 400 {
+		return jc.printRespErr(r, &CommandError{"Oops."})
+	}
+	return err
+}
+
+func (jc *JiraClient) DelComment(issueKey string, comment_id string) (err error) {
+
+	r, err := jc.Delete(fmt.Sprintf("%s/%s/comment/%s", jc.issueUrl(), issueKey, comment_id), "", nil)
+	if err != nil {
+		return jc.printRespErr(r, err)
+	}
+	return err
+}
+
+func (jc *JiraClient) GetComments(issueKey string) (err error) {
+
+	return err
+}
+
+func (jc *JiraClient) printRespErr(res *http.Response, err error) error {
+	if options.Verbose {
+		fmt.Println("Status code: ", res.StatusCode)
+	}
+	s, _ := ioutil.ReadAll(res.Body)
+	fmt.Println(string(s))
+	return err
+}
+
 func (jc *JiraClient) DelAttachment(issueKey string, att_name string) (err error) {
 	iss, err := jc.GetIssue(issueKey)
 	if err != nil {
@@ -203,8 +246,39 @@ func NewIssueFromIface(obj interface{}) (*Issue, error) {
 	issue.OriginalEstimate, _ = OriginalEstimateJs.(float64)
 	issue.RemainingEstimate, _ = RemainingEstimateJs.(float64)
 	issue.TimeSpent, _ = TimeSpentJs.(float64)
+	comms, err := jsonWalker("fields/comment/comments", obj)
+	if err == nil {
+		issue.Comments = commentsFromIFace(comms)
+		if options.Verbose {
+			fmt.Println(issue.Comments)
+		}
+	} else {
+		if options.Verbose {
+			fmt.Println(err)
+		}
+		issue.Comments = CommentList{}
+	}
 
 	return issue, nil
+}
+
+func commentsFromIFace(obj interface{}) CommentList {
+	result := CommentList{}
+	if comments, ok := obj.([]interface{}); ok {
+		for _, cmj := range comments {
+			if cm, ok := cmj.(map[string]interface{}); ok {
+				if id, ok2 := cm["id"].(string); ok2 {
+					if body, ok3 := cm["body"].(string); ok3 {
+						if author, ok := cm["author"].(map[string]interface{})["displayName"].(string); ok {
+							result = append(result, &Comment{Id: id, Body: body, AuthorName: author})
+						}
+					}
+
+				}
+			}
+		}
+	}
+	return result
 }
 
 func getFileListFromIface(obj interface{}) IssueFileList {
@@ -497,6 +571,10 @@ func (jc *JiraClient) CreateTask(project string, nto *newTaskOptions) error {
 	key, _ := keyjs.(string)
 	log.Println(fmt.Sprintf("%s successfully created!", key))
 	return nil
+}
+
+func (jc *JiraClient) issueUrl() string {
+	return fmt.Sprintf("https://%s/rest/api/2/issue", jc.Server)
 }
 
 type JiraProject struct {
