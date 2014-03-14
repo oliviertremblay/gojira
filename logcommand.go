@@ -37,6 +37,7 @@ type TimeLog struct {
 	Date    time.Time
 	Seconds int
 	Issue   *Issue
+	Author  string
 }
 
 func (tl TimeLog) String() string {
@@ -78,6 +79,18 @@ type Period struct {
 	Begin time.Time
 	End   time.Time
 }
+
+func (tlm TimeLogMap) String() string {
+	buf := bytes.NewBuffer([]byte{})
+	for moment, timelogs := range tlm {
+		buf.WriteString(fmt.Sprintf("  %v\n", moment))
+		for _, timelog := range timelogs {
+			buf.WriteString(fmt.Sprintf("    %v\n", timelog.PrettySeconds()))
+		}
+	}
+	return buf.String()
+}
+
 type TimeLogMap map[time.Time][]TimeLog
 type TimeSlice []time.Time
 
@@ -118,6 +131,36 @@ func (tlm TimeLogMap) SumForMap() int {
 	return seconds
 }
 
+func TimeLogForIssue(issue *Issue, issue_json interface{}) TimeLogMap {
+	logs_for_times := TimeLogMap{}
+	logs_json, _ := jsonWalker("fields/worklog/worklogs", issue_json)
+	logs, ok := logs_json.([]interface{})
+	if ok {
+		for _, log := range logs {
+			//We got good json and it's by our user
+			authorjson, _ := jsonWalker("author/name", log)
+			if author, ok := authorjson.(string); ok {
+				dsjson, _ := jsonWalker("started", log)
+				if date_string, ok := dsjson.(string); ok {
+					//"2013-11-08T11:37:03.000-0500" <-- date format
+					precise_time, _ := time.Parse(JIRA_TIME_FORMAT, date_string)
+
+					date := time.Date(precise_time.Year(), precise_time.Month(), precise_time.Day(), 0, 0, 0, 0, precise_time.Location())
+					secondsjson, _ := jsonWalker("timeSpentSeconds", log)
+					seconds := int(secondsjson.(float64))
+					if _, ok := logs_for_times[date]; !ok {
+						logs_for_times[date] = make([]TimeLog, 0)
+					}
+					logs_for_times[date] = append(logs_for_times[date], TimeLog{issue.Key, date, seconds, issue, author})
+
+				}
+			}
+		}
+		return logs_for_times
+	}
+	return nil
+}
+
 func (lc *LogCommand) GetTimeLog(targetAuthor string, period Period, issue *Issue) error {
 	issuestring := ""
 	if issue != nil {
@@ -133,34 +176,17 @@ func (lc *LogCommand) GetTimeLog(targetAuthor string, period Period, issue *Issu
 	for _, issue := range issues {
 		go func(issue *Issue) {
 			logs_for_times := TimeLogMap{}
-			url := fmt.Sprintf("https://%s/rest/api/2/issue/%s/worklog", options.Server, issue.Key)
-			resp, _ := lc.jc.Get(url)
-			worklog, _ := JsonToInterface(resp.Body)
-			logs_json, _ := jsonWalker("worklogs", worklog)
-			logs, ok := logs_json.([]interface{})
-			if ok {
-				for _, log := range logs {
-					//We got good json and it's by our user
-					authorjson, _ := jsonWalker("author/name", log)
-					if author, ok := authorjson.(string); ok && (author == targetAuthor || targetAuthor == "") {
-						dsjson, _ := jsonWalker("started", log)
-						if date_string, ok := dsjson.(string); ok {
-							//"2013-11-08T11:37:03.000-0500" <-- date format
-							precise_time, _ := time.Parse(JIRA_TIME_FORMAT, date_string)
-							if precise_time.After(period.Begin) && precise_time.Before(period.End) {
-								date := time.Date(precise_time.Year(), precise_time.Month(), precise_time.Day(), 0, 0, 0, 0, precise_time.Location())
-								secondsjson, _ := jsonWalker("timeSpentSeconds", log)
-								seconds := int(secondsjson.(float64))
-								if _, ok := logs_for_times[date]; !ok {
-									logs_for_times[date] = make([]TimeLog, 0)
-								}
-								logs_for_times[date] = append(logs_for_times[date], TimeLog{issue.Key, date, seconds, issue})
-							}
+			for moment, timeloglist := range issue.TimeLog {
+				for _, timelog := range timeloglist {
+					if (moment.After(period.Begin) && moment.Before(period.End)) && (timelog.Author == targetAuthor || targetAuthor == "") {
+						if _, ok := logs_for_times[moment]; !ok {
+							logs_for_times[moment] = []TimeLog{}
 						}
+						logs_for_times[moment] = append(logs_for_times[moment], timelog)
 					}
 				}
-				logchan <- logs_for_times
 			}
+			logchan <- logs_for_times
 		}(issue)
 	}
 

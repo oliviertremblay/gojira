@@ -23,6 +23,7 @@ type Issue struct {
 	RemainingEstimate float64
 	TimeSpent         float64
 	Comments          CommentList
+	TimeLog           TimeLogMap
 }
 
 type CommentList []*Comment
@@ -98,6 +99,10 @@ func (i *Issue) PrettySprint() string {
 
 	if len(i.Comments) > 0 {
 		sa = append(sa, fmt.Sprintln(fmt.Sprintf("Comments: \n%v", i.Comments)))
+	}
+
+	if len(i.TimeLog) > 0 {
+		sa = append(sa, fmt.Sprintln(fmt.Sprintf("Worklog: \n%v", i.TimeLog)))
 	}
 
 	return strings.Join(sa, "\n")

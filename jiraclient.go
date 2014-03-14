@@ -174,7 +174,7 @@ func (ja *JiraClient) Search(searchoptions *SearchOptions) ([]*Issue, error) {
 	} else {
 		jqlstr = strings.Replace(searchoptions.JQL, " ", "+", -1)
 	}
-	url := fmt.Sprintf("https://%s/rest/api/2/search?jql=%s", ja.Server, jqlstr)
+	url := fmt.Sprintf("https://%s/rest/api/2/search?jql=%s&fields=*all", ja.Server, jqlstr)
 	if options.Verbose {
 		fmt.Println(url)
 	}
@@ -246,6 +246,7 @@ func NewIssueFromIface(obj interface{}) (*Issue, error) {
 	issue.OriginalEstimate, _ = OriginalEstimateJs.(float64)
 	issue.RemainingEstimate, _ = RemainingEstimateJs.(float64)
 	issue.TimeSpent, _ = TimeSpentJs.(float64)
+	issue.TimeLog = TimeLogForIssue(issue, obj)
 	comms, err := jsonWalker("fields/comment/comments", obj)
 	if err == nil {
 		issue.Comments = commentsFromIFace(comms)
