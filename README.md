@@ -43,3 +43,9 @@ LICENSE
 -------
 
 BSD-3
+
+
+TIPS
+----
+
+If you find this software useful in any way and wish to reward the work that went in it, I accept donations in the form of Dogecoins at this address: DQpQKEVThLMMfV8HWg69wjnAPgzNLJyNem 
