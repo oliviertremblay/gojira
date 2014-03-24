@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"strings"
@@ -32,7 +33,15 @@ func (ec *CommentCommand) Execute(args []string) error {
 		cmd.Run()
 		comment = out.String()
 	} else {
-		comment = strings.Join(args[1:], " ")
+		if args[1] == "-" {
+			b, err := ioutil.ReadAll(os.Stdin)
+			if err != nil {
+				return err
+			}
+			comment = string(b)
+		} else {
+			comment = strings.Join(args[1:], " ")
+		}
 	}
 
 	err := jc.AddComment(args[0], comment)
