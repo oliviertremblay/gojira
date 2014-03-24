@@ -13,6 +13,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 )
 
@@ -53,9 +54,22 @@ func (jc *JiraClient) AddComment(issueKey string, comment string) (err error) {
 	return err
 }
 
-func (jc *JiraClient) DelComment(issueKey string, comment_id string) (err error) {
+var numregex *regexp.Regexp = regexp.MustCompile("[0-9]+")
 
-	r, err := jc.Delete(fmt.Sprintf("%s/%s/comment/%s", jc.issueUrl(), issueKey, comment_id), "", nil)
+func numOnly(s string) (string, error) {
+	result := numregex.FindString(s)
+	if result == "" {
+		return "", &CommandError{"Not a number"}
+	}
+	return result, nil
+}
+
+func (jc *JiraClient) DelComment(issueKey string, comment_id string) (err error) {
+	cid, err := numOnly(comment_id)
+	if err != nil {
+		return &CommandError{"Bad comment id"}
+	}
+	r, err := jc.Delete(fmt.Sprintf("%s/%s/comment/%s", jc.issueUrl(), issueKey, cid), "", nil)
 	if err != nil {
 		return jc.printRespErr(r, err)
 	}
