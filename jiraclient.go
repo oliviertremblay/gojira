@@ -78,7 +78,7 @@ func (jc *JiraClient) DelComment(issueKey string, comment_id string) (err error)
 
 func (jc *JiraClient) GetComments(issueKey string) (err error) {
 
-	return err
+	return &CommandError{"Not implemented"}
 }
 
 func (jc *JiraClient) printRespErr(res *http.Response, err error) error {

@@ -1,6 +1,9 @@
 package main
 
 import (
+	"bytes"
+	"os"
+	"os/exec"
 	"strings"
 )
 
@@ -17,11 +20,22 @@ type CommentCommand struct {
 func (ec *CommentCommand) Execute(args []string) error {
 	jc := NewJiraClient(options)
 
-	if !(len(args) > 1) {
+	if !(len(args) > 0) {
 		return &CommandError{"Not enough arguments"}
 	}
+	var comment string
+	if len(args) == 1 {
+		cmd := exec.Command("cat")
+		var out bytes.Buffer
+		cmd.Stdout = &out
+		cmd.Stdin = os.Stdin
+		cmd.Run()
+		comment = out.String()
+	} else {
+		comment = strings.Join(args[1:], " ")
+	}
 
-	err := jc.AddComment(args[0], strings.Join(args[1:], " "))
+	err := jc.AddComment(args[0], comment)
 	if err != nil {
 		return err
 	}
