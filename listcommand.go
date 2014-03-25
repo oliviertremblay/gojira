@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+
+	"github.com/hoisie/mustache"
 )
 
 func init() {
@@ -18,6 +20,8 @@ type ListCommand struct {
 	Open          bool   `short:"o" long:"open"`
 	Issue         string `short:"i" long:"issue"`
 	JQL           string `short:"q" long:"jql" description:"Custom JQL query"`
+	Print         bool   `long:"print" description:"Print stories to file"`
+	PrintTmpl     string `long:"tmpl" description:"Custom mustache template."`
 }
 
 var listCommand ListCommand
@@ -35,9 +39,21 @@ func (lc *ListCommand) Execute(args []string) error { //ListTasks(){//
 	if err != nil {
 		return err
 	}
-
-	for _, v := range issues {
-		fmt.Println(v)
+	if lc.Print {
+		var tmpl *mustache.Template
+		if lc.PrintTmpl != "" {
+			tmpl, err = mustache.ParseFile(lc.PrintTmpl)
+		} else {
+			tmpl, err = mustache.ParseString(defaultTemplate)
+		}
+		if err != nil {
+			return err
+		}
+		fmt.Println(tmpl.Render(map[string]interface{}{"Issues": issues}))
+	} else {
+		for _, v := range issues {
+			fmt.Println(v)
+		}
 	}
 
 	return nil

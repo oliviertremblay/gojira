@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"os/exec"
 	"regexp"
 	"strings"
 )
@@ -24,6 +25,21 @@ type Issue struct {
 	TimeSpent         float64
 	Comments          CommentList
 	TimeLog           TimeLogMap
+}
+
+func (i *Issue) QRCodeBase64() string {
+	cmd := exec.Command("qrencode", "-o", "-", i.Url())
+	b, e := cmd.Output()
+	if e != nil {
+		panic(e)
+	}
+	cmd2 := exec.Command("base64")
+	cmd2.Stdin = bytes.NewBuffer(b)
+	b2, e := cmd2.Output()
+	if e != nil {
+		panic(e)
+	}
+	return string(b2)
 }
 
 type CommentList []*Comment
@@ -74,10 +90,14 @@ func (i *Issue) String() string {
 	return fmt.Sprintf("%s (%s%s): %s", i.Key, i.Type, p, i.Summary)
 }
 
+func (i *Issue) Url() string {
+	return fmt.Sprintf("https://%s/browse/%s", options.Server, i.Key)
+}
+
 func (i *Issue) PrettySprint() string {
 	sa := make([]string, 0)
 	sa = append(sa, fmt.Sprintln(i.String()))
-	sa = append(sa, fmt.Sprintln(fmt.Sprintf("Jira URL: https://%s/browse/%s", options.Server, i.Key)))
+	sa = append(sa, fmt.Sprintln(fmt.Sprintf("Jira URL: %s", i.Url())))
 	sa = append(sa, fmt.Sprintln(fmt.Sprintf("Status: %s", i.Status)))
 	sa = append(sa, fmt.Sprintln(fmt.Sprintf("Assignee: %s", i.Assignee)))
 
