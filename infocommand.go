@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+
+	"thezombie.net/libgojira"
 )
 
 type InfoCommand struct {
@@ -14,7 +16,7 @@ func init() {
 }
 
 func (ic *InfoCommand) Execute(args []string) error {
-	jc := NewJiraClient(options)
+	jc := libgojira.NewJiraClient(options)
 	if len(args) == 0 {
 
 		return &CommandError{"Usage: gojira info ISSUE-1234"}

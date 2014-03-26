@@ -6,6 +6,8 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+
+	"thezombie.net/libgojira"
 )
 
 var commentcommand CommentCommand
@@ -19,7 +21,7 @@ type CommentCommand struct {
 }
 
 func (ec *CommentCommand) Execute(args []string) error {
-	jc := NewJiraClient(options)
+	jc := libgojira.NewJiraClient(options)
 
 	if !(len(args) > 0) {
 		return &CommandError{"Not enough arguments"}
@@ -58,7 +60,7 @@ var delcommentcommand DeleteCommentCommand
 type DeleteCommentCommand struct{}
 
 func (ec *DeleteCommentCommand) Execute(args []string) error {
-	jc := NewJiraClient(options)
+	jc := libgojira.NewJiraClient(options)
 
 	if !(len(args) == 2) {
 		return &CommandError{"Not enough or too much arguments. Exactly 2 required (Ticket ID and comment ID)."}

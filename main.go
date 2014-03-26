@@ -1,30 +1,22 @@
 package main
 
 import (
-	"github.com/jessevdk/go-flags"
 	"log"
 	"os"
+	"thezombie.net/libgojira"
+
+	"io"
+	"github.com/jessevdk/go-flags"
 )
 
-//Options available to the app.
-type Options struct {
-	User       string `short:"u" long:"user" description:"Your username"`
-	Passwd     string `short:"p" long:"pass" description:"Your password" default-mask:"*******"`
-	NoCheckSSL bool   `short:"n" long:"no-check-ssl" description:"Don't check ssl validity"`
-	UseStdIn   bool   `long:"stdin"`
-
-	Verbose bool   `short:"v" long:"verbose" description:"Be verbose"`
-	Project string `short:"j" long:"project"`
-
-	Server string `short:"s" long:"server" description:"Jira server (just the domain name)"`
-}
-
+var out io.Writer
 var debug bool
-var options Options
+var options libgojira.Options
 var parser *flags.Parser = flags.NewParser(&options, flags.Default)
 var iniParser = flags.NewIniParser(parser)
 
 func main() {
+	out = os.Stdout
 	err := iniParser.ParseFile(os.ExpandEnv("$HOME/.gojirarc"))
 	if err != nil && debug {
 		log.Println(err)
@@ -42,4 +34,12 @@ func main() {
 		log.Println(err)
 	}
 
+}
+
+func SetOptions(opts libgojira.Options) {
+	options = opts
+}
+
+func SetOutput(output io.Writer) {
+	out = output
 }

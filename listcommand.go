@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"thezombie.net/libgojira"
 
 	"github.com/hoisie/mustache"
 )
@@ -31,11 +32,11 @@ func (lc *ListCommand) Execute(args []string) error { //ListTasks(){//
 	if options.Verbose {
 		fmt.Println("In List Command")
 	}
-	jc := NewJiraClient(options)
+	jc := libgojira.NewJiraClient(options)
 	if len(args) == 1 && (!lc.Open && !lc.CurrentSprint && lc.JQL == "") {
 		lc.JQL = fmt.Sprintf("key = %s or parent = %s order by rank", args[0], args[0])
 	}
-	issues, err := jc.Search(&SearchOptions{options.Project, lc.CurrentSprint, lc.Open, lc.Issue, lc.JQL})
+	issues, err := jc.Search(&libgojira.SearchOptions{options.Project, lc.CurrentSprint, lc.Open, lc.Issue, lc.JQL})
 	if err != nil {
 		return err
 	}
@@ -49,10 +50,10 @@ func (lc *ListCommand) Execute(args []string) error { //ListTasks(){//
 		if err != nil {
 			return err
 		}
-		fmt.Println(tmpl.Render(map[string]interface{}{"Issues": issues}))
+		fmt.Fprintln(out, tmpl.Render(map[string]interface{}{"Issues": issues}))
 	} else {
 		for _, v := range issues {
-			fmt.Println(v)
+			fmt.Fprintln(out, v)
 		}
 	}
 

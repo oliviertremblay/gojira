@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"strings"
+
+	"thezombie.net/libgojira"
 )
 
 type TaskCommand struct{}
@@ -18,7 +20,7 @@ Allows you to work with stories and tasks.
 }
 
 func (tc *TaskCommand) Execute(args []string) error {
-	jc := NewJiraClient(options)
+	jc := libgojira.NewJiraClient(options)
 	iss, err := jc.GetIssue(args[0])
 	if err != nil {
 		return err

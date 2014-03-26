@@ -2,6 +2,8 @@ package main
 
 import (
 	"strings"
+
+	"thezombie.net/libgojira"
 )
 
 var createCommand CreateCommand
@@ -16,11 +18,11 @@ type CreateCommand struct {
 }
 
 func (cc *CreateCommand) Execute(args []string) error {
-	jc := NewJiraClient(options)
+	jc := libgojira.NewJiraClient(options)
 	if options.Project == "" {
 		return &CommandError{"gojira -p flag is required for this."}
 	}
-	opts := &newTaskOptions{}
+	opts := &libgojira.NewTaskOptions{}
 	opts.OriginalEstimate = cc.Estimate
 	opts.Summary = strings.Join(args[1:], " ")
 	opts.TaskType = args[0]
@@ -41,11 +43,4 @@ func (cc *CreateCommand) Execute(args []string) error {
 	}
 	return nil
 
-}
-
-type newTaskOptions struct {
-	TaskType         string
-	Summary          string
-	OriginalEstimate string
-	Parent           *Issue
 }

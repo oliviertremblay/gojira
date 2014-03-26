@@ -1,5 +1,7 @@
 package main
 
+import "thezombie.net/libgojira"
+
 func init() {
 	parser.AddCommand("add-tag", "Add label to issue", "Usage: gojira add-tag ISSUE-1234 My-Label", &addTagCommand)
 }
@@ -13,7 +15,7 @@ func (atc *AddTagCommand) Execute(args []string) error {
 		return &AddCommandError{"Usage: gojira add-tag ISSUE-1234 My-Label"}
 	}
 	postjs := map[string]interface{}{"labels": []interface{}{map[string]interface{}{"add": args[1]}}}
-	jc := NewJiraClient(options)
+	jc := libgojira.NewJiraClient(options)
 	err := jc.UpdateIssue(args[0], postjs)
 	if err != nil {
 		return err

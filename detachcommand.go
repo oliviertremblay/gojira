@@ -1,5 +1,7 @@
 package main
 
+import "thezombie.net/libgojira"
+
 var detachCommand DetachCommand
 
 func init() {
@@ -10,7 +12,7 @@ type DetachCommand struct {
 }
 
 func (ac *DetachCommand) Execute(args []string) error {
-	jc := NewJiraClient(options)
+	jc := libgojira.NewJiraClient(options)
 
 	if !(len(args) > 1) {
 		return &CommandError{"Not enough arguments"}
