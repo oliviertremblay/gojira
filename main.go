@@ -26,7 +26,7 @@ func main() {
 		log.Println(err)
 	}
 	_, err = parser.Parse()
-
+	libgojira.SetOptions(options)
 	if err != nil {
 		if e, ok := err.(*flags.Error); ok && e.Type == flags.ErrHelp {
 			os.Exit(0)
