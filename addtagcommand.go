@@ -14,9 +14,9 @@ func (atc *AddTagCommand) Execute(args []string) error {
 	if len(args) != 2 {
 		return &AddCommandError{"Usage: gojira add-tag ISSUE-1234 My-Label"}
 	}
-	postjs := map[string]interface{}{"labels": []interface{}{map[string]interface{}{"add": args[1]}}}
+
 	jc := libgojira.NewJiraClient(options)
-	err := jc.UpdateIssue(args[0], postjs)
+	err := jc.AddTags(args[0], args[1:])
 	if err != nil {
 		return err
 	}

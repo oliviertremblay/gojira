@@ -13,8 +13,12 @@ func init() {
 }
 
 type CreateCommand struct {
-	Parent   string `short:"p" long:"parent" description:"Parent of the task you're creating."`
-	Estimate string `short:"e" long:"estimate" description:"Your original estimate of the story"`
+	Parent       string   `short:"p" long:"parent" description:"Parent of the task you're creating."`
+	Estimate     string   `short:"e" long:"estimate" description:"Your original estimate of the story"`
+	Description  string   `short:"d" long:"description" description:"Description of the story"`
+	Fields       []string `long:"field" description:"Custom field for Jira issue"`
+	SelectFields []string `long:"selfield" description:"Custom Select Fields for Jira Issue"`
+	Labels       []string `long:"label" description:"Label for issue"`
 }
 
 func (cc *CreateCommand) Execute(args []string) error {
@@ -26,6 +30,8 @@ func (cc *CreateCommand) Execute(args []string) error {
 	opts.OriginalEstimate = cc.Estimate
 	opts.Summary = strings.Join(args[1:], " ")
 	opts.TaskType = args[0]
+	opts.Description = cc.Description
+	opts.Labels = cc.Labels
 	if cc.Parent != "" {
 		iss, err := jc.GetIssue(cc.Parent)
 		opts.Parent = iss
@@ -33,6 +39,8 @@ func (cc *CreateCommand) Execute(args []string) error {
 			return err
 		}
 	}
+	opts.Fields = cc.Fields
+	opts.SelectFields = cc.SelectFields
 	err := jc.CreateTask(options.Project, opts)
 	if err != nil {
 		return err
