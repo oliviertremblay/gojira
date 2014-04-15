@@ -17,12 +17,16 @@ func init() {
 
 //Command made to list
 type ListCommand struct {
-	CurrentSprint bool   `short:"c" long:"current-sprint" description:"Show stories for current sprint"`
-	Open          bool   `short:"o" long:"open"`
-	Issue         string `short:"i" long:"issue"`
-	JQL           string `short:"q" long:"jql" description:"Custom JQL query"`
-	Print         bool   `long:"print" description:"Print stories to file"`
-	PrintTmpl     string `long:"tmpl" description:"Custom mustache template."`
+	CurrentSprint bool     `short:"c" long:"current-sprint" description:"Show stories for current sprint"`
+	Open          bool     `short:"o" long:"open"`
+	Issue         string   `short:"i" long:"issue"`
+	JQL           string   `short:"q" long:"jql" description:"Custom JQL query"`
+	Print         bool     `long:"print" description:"Print stories to file"`
+	PrintTmpl     string   `long:"tmpl" description:"Custom mustache template."`
+	Type          []string `long:"type" short:"t" description:"Inclusive 'OR' cumulative task type flag. (jql: type in (a, b,c))"`
+	NotType       []string `long:"nottype" short:"n" description:"'AND' cumulative task type flag. (jql: type not in (d,e,f))"`
+	Status        []string `long:"status" description:"Inclusive 'OR' cumulative task status flag. (jql: status in (a, b,c))"`
+	NotStatus     []string `long:"notstatus" description:"'AND' cumulative task status flag. (jql: status not in (d,e,f))"`
 }
 
 var listCommand ListCommand
@@ -36,7 +40,7 @@ func (lc *ListCommand) Execute(args []string) error { //ListTasks(){//
 	if len(args) == 1 && (!lc.Open && !lc.CurrentSprint && lc.JQL == "") {
 		lc.JQL = fmt.Sprintf("key = %s or parent = %s order by rank", args[0], args[0])
 	}
-	issues, err := jc.Search(&libgojira.SearchOptions{options.Project, lc.CurrentSprint, lc.Open, lc.Issue, lc.JQL})
+	issues, err := jc.Search(&libgojira.SearchOptions{options.Project, lc.CurrentSprint, lc.Open, lc.Issue, lc.JQL, lc.Type, lc.NotType, lc.Status, lc.NotStatus})
 	if err != nil {
 		return err
 	}
