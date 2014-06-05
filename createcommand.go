@@ -23,8 +23,8 @@ type CreateCommand struct {
 
 func (cc *CreateCommand) Execute(args []string) error {
 	jc := libgojira.NewJiraClient(options)
-	if options.Project == "" {
-		return &CommandError{"gojira -p flag is required for this."}
+	if len(options.Projects) != 1 {
+		return &CommandError{"gojira -j flag is required once and only once for this command."}
 	}
 	opts := &libgojira.NewTaskOptions{}
 	opts.OriginalEstimate = cc.Estimate
@@ -41,7 +41,7 @@ func (cc *CreateCommand) Execute(args []string) error {
 	}
 	opts.Fields = cc.Fields
 	opts.SelectFields = cc.SelectFields
-	err := jc.CreateTask(options.Project, opts)
+	err := jc.CreateTask(options.Projects[0], opts)
 	if err != nil {
 		return err
 	}

@@ -42,7 +42,7 @@ func (lc *LogCommand) GetTimeLog(targetAuthor string, period Period, issue *libg
 	if issue != nil {
 		issuestring = fmt.Sprintf(" AND key = '%s'", issue.Key)
 	}
-	issues, err := lc.jc.Search(&libgojira.SearchOptions{JQL: fmt.Sprintf("timespent > 0 AND updated >= '%s' and project = '%s'%s", period.Begin.Format("2006-01-02"), options.Project, issuestring)})
+	issues, err := lc.jc.Search(&libgojira.SearchOptions{JQL: fmt.Sprintf("timespent > 0 AND updated >= '%s' and project in ('%s')%s", period.Begin.Format("2006-01-02"), strings.Join(options.Projects, "','"), issuestring)})
 	if err != nil {
 		return err
 	}
