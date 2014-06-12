@@ -104,7 +104,6 @@ func (lc *LogCommand) Execute(args []string) error {
 		n = d
 	}
 	if lc.MyLog || len(args) < 2 {
-		log.Println(args)
 		author := ""
 		if lc.MyLog {
 			author = options.User

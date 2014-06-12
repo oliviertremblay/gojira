@@ -41,10 +41,6 @@ func (lc *ListCommand) Execute(args []string) error { //ListTasks(){//
 	if len(args) == 1 && (!lc.Open && !lc.CurrentSprint && lc.JQL == "") {
 		lc.JQL = fmt.Sprintf("key = %s or parent = %s order by rank", args[0], args[0])
 	}
-	if lc.TotalTime {
-		lc.Type = []string{}
-		lc.NotType = lc.Type
-	}
 	issues, err := jc.Search(&libgojira.SearchOptions{options.Projects, lc.CurrentSprint, lc.Open, lc.Issue, lc.JQL, lc.Type, lc.NotType, lc.Status, lc.NotStatus})
 	if err != nil {
 		return err
@@ -62,26 +58,9 @@ func (lc *ListCommand) Execute(args []string) error { //ListTasks(){//
 		fmt.Fprintln(out, tmpl.Render(map[string]interface{}{"Issues": issues}))
 	} else {
 		if lc.TotalTime {
-			iim := map[string]*libgojira.Issue{}
+			fmt.Fprintln(out, "ID,Points,Type,Est.,Spent,Rem.,Desc.")
 			for _, v := range issues {
-				if v.Type != "Sub-task" {
-					iim[v.Key] = v
-				}
-			}
-
-			for _, v := range issues {
-				if v.Type == "Sub-task" {
-					if options.Verbose {
-						fmt.Fprintln(out, v)
-					}
-					iim[v.Parent].TimeSpent += v.TimeSpent
-					iim[v.Parent].OriginalEstimate += v.OriginalEstimate
-					iim[v.Parent].RemainingEstimate += v.RemainingEstimate
-				}
-			}
-			fmt.Fprintln(out, "ID,Type,Est.,Spent,Rem.,Desc.")
-			for _, v := range iim {
-				fmt.Fprintln(out, fmt.Sprintf("%s,%s,%s,%s,%s,%s", v.Key, v.Type, libgojira.PrettySeconds(int(v.OriginalEstimate)), libgojira.PrettySeconds(int(v.TimeSpent)), libgojira.PrettySeconds(int(v.RemainingEstimate)), v.Summary))
+				fmt.Fprintln(out, fmt.Sprintf("%s,%s,%s,%s,%s,%s,\"%s\"", v.Key, v.Points, v.Type, libgojira.PrettySeconds(int(v.OriginalEstimate)), libgojira.PrettySeconds(int(v.TimeSpent)), libgojira.PrettySeconds(int(v.RemainingEstimate)), v.Summary))
 			}
 		} else {
 			for _, v := range issues {
