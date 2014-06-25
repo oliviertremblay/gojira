@@ -23,7 +23,7 @@ func init() {
 type LogCommand struct {
 	MyLog         bool   `short:"m" long:"mine" description:"Show my log for current sprint" default:"false" group:"Application Options"`
 	Author        string `short:"a" long:"author" description:"Show log for given author"`
-	Yesterday     bool   `short:"y" long:"yesterday" description:"Log time yesterday. Has precedence over -d."`
+	Yesterday     []bool `short:"y" long:"yesterday" description:"Log time yesterday. Has precedence over -d."`
 	Day           string `short:"d" long:"day" description:"Day, in the format 'yyyy-mm-dd'"`
 	Comment       string `short:"c" long:"comment" description:"Comment for the worklog"`
 	WorklogFormat string `short:"f" long:"worklog-format" description:"Format string of worklog" default:""`
@@ -127,8 +127,8 @@ func (lc *LogCommand) Execute(args []string) error {
 		key := args[0]
 		timeSpent := strings.Join(args[1:], " ")
 		started := n
-		if lc.Yesterday {
-			started = time.Unix(n.Unix()-SECONDS_IN_A_DAY, 0)
+		if len(lc.Yesterday) > 0 {
+			started = time.Unix(n.Unix()-(SECONDS_IN_A_DAY*int64(len(lc.Yesterday))), 0)
 		}
 		data := map[string]string{"timeSpent": timeSpent, "started": started.Format(libgojira.JIRA_TIME_FORMAT), "comment": lc.Comment}
 		postdata, _ := json.Marshal(data)
