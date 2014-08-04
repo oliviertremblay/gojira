@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"strings"
 
 	"thezombie.net/libgojira"
@@ -24,6 +25,9 @@ type CreateCommand struct {
 func (cc *CreateCommand) Execute(args []string) error {
 	jc := libgojira.NewJiraClient(options)
 	if len(options.Projects) != 1 {
+		if options.Verbose {
+			log.Println(options.Projects)
+		}
 		return &CommandError{"gojira -j flag is required once and only once for this command."}
 	}
 	opts := &libgojira.NewTaskOptions{}

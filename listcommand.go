@@ -49,13 +49,11 @@ func (lc *ListCommand) Execute(args []string) error { //ListTasks(){//
 		var tmpl *mustache.Template
 		if lc.PrintTmpl != "" {
 			tmpl, err = mustache.ParseFile(lc.PrintTmpl)
-		} else {
-			tmpl, err = mustache.ParseString(defaultTemplate)
-		}
-		if err != nil {
-			return err
-		}
 		fmt.Fprintln(out, tmpl.Render(map[string]interface{}{"Issues": issues}))
+		} else {
+			html, _ := libgojira.PrintHtml(issues)
+			fmt.Fprintln(out, string(html))
+		}
 	} else {
 		if lc.TotalTime {
 			fmt.Fprintln(out, "ID,Points,Type,Est.,Spent,Rem.,Desc.")
