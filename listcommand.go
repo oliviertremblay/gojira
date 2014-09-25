@@ -49,7 +49,7 @@ func (lc *ListCommand) Execute(args []string) error { //ListTasks(){//
 		var tmpl *mustache.Template
 		if lc.PrintTmpl != "" {
 			tmpl, err = mustache.ParseFile(lc.PrintTmpl)
-		fmt.Fprintln(out, tmpl.Render(map[string]interface{}{"Issues": issues}))
+			fmt.Fprintln(out, tmpl.Render(map[string]interface{}{"Issues": issues}))
 		} else {
 			html, _ := libgojira.PrintHtml(issues)
 			fmt.Fprintln(out, string(html))
